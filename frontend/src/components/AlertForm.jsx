@@ -93,9 +93,25 @@ const AlertForm = ({ onClose, userLocation }) => {
   const [photo, setPhoto] = useState(null);
 
   // Location picker state — start at user's GPS or default center
+  const formattedUserLocation = useMemo(() => {
+    if (!userLocation) return null;
+    if (Array.isArray(userLocation)) {
+      return { lat: userLocation[0], lng: userLocation[1] };
+    }
+    return userLocation;
+  }, [userLocation]);
+
   const [selectedLocation, setSelectedLocation] = useState(
-    userLocation || DEFAULT_CENTER
+    formattedUserLocation || DEFAULT_CENTER
   );
+
+  // Sync selected location if userLocation becomes available post-mount
+  useEffect(() => {
+    if (formattedUserLocation) {
+      setSelectedLocation(formattedUserLocation);
+    }
+  }, [formattedUserLocation]);
+
   // Track a "recenter target" to trigger flyTo on the picker map
   const [recenterTarget, setRecenterTarget] = useState(null);
 
@@ -115,9 +131,9 @@ const AlertForm = ({ onClose, userLocation }) => {
   // Handle "Use My Current Location" button
   // ==============================================
   const handleUseMyLocation = () => {
-    if (userLocation) {
-      setSelectedLocation(userLocation);
-      setRecenterTarget({ ...userLocation }); // new object ref to trigger effect
+    if (formattedUserLocation) {
+      setSelectedLocation(formattedUserLocation);
+      setRecenterTarget({ ...formattedUserLocation }); // new object ref to trigger effect
     }
   };
 
@@ -179,7 +195,7 @@ const AlertForm = ({ onClose, userLocation }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={handleOverlayClick}>
+    <div className="modal-overlay" onClick={handleOverlayClick} style={{ zIndex: 9999 }}>
       <div className="modal-content alert-form-modal">
         {/* Modal Header */}
         <div className="modal-header">

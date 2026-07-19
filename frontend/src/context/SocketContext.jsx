@@ -13,7 +13,7 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 // Create the Socket context
-const SocketContext = createContext(null);
+export const SocketContext = createContext(null);
 
 // ==============================================
 // SocketProvider Component

@@ -11,6 +11,11 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
+
+// Import Alert and User models
+const Alert = require('../models/Alert');
+const User = require('../models/User');
 
 // Import controller functions
 const {
@@ -93,5 +98,140 @@ router.post('/:id/corroborate', protect, corroborateAlert);
 // @desc    Get a single alert by its ID
 // @access  Public
 router.get('/:id', getAlertById);
+
+// @route   PUT /api/alerts/:id/score
+// @desc    Receive credibility score and status updates from the AI microservice
+// @access  Internal (No auth required)
+router.put('/:id/score', async (req, res) => {
+  try {
+    const alertId = req.params.id;
+    const { credibility_score, status, confidence, factors } = req.body;
+
+    if (credibility_score === undefined || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: credibility_score and status'
+      });
+    }
+
+    // Find and update the alert in the database
+    const updatedAlert = await Alert.findByIdAndUpdate(
+      alertId,
+      {
+        credibilityScore: credibility_score,
+        status: status,
+        confidence: confidence !== undefined ? confidence : 50,
+        factors: factors || { corroboration_impact: 0, reporter_trust: 0, type_risk: 0, time_penalty: 0 }
+      },
+      { new: true }
+    )
+      .populate('reportedBy', 'name role credibilityScore')
+      .populate('corroborations', 'name');
+
+    if (!updatedAlert) {
+      return res.status(404).json({
+        success: false,
+        message: 'Alert not found'
+      });
+    }
+
+    // Emit real-time update socket event to automatically update client UI/Map markers
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('alert_updated', updatedAlert);
+      console.log(`Socket broadcast 'alert_updated' sent for alert ID: ${alertId}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Alert credibility score and status updated successfully',
+      alert: updatedAlert
+    });
+  } catch (error) {
+    console.error('Update alert score error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating alert score'
+    });
+  }
+});
+
+// @route   POST /api/alerts/:id/feedback
+// @desc    Process authority feedback (genuine vs false) for credibility score calibration
+// @access  Private (Authority only)
+router.post('/:id/feedback', protect, async (req, res) => {
+  try {
+    if (req.user.role !== 'authority') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Authority role required'
+      });
+    }
+
+    const { feedback_type } = req.body;
+    if (!feedback_type || (feedback_type !== 'genuine' && feedback_type !== 'false')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or missing feedback_type. Must be "genuine" or "false"'
+      });
+    }
+
+    const alert = await Alert.findById(req.params.id);
+    if (!alert) {
+      return res.status(404).json({
+        success: false,
+        message: 'Alert not found'
+      });
+    }
+
+    // Call Python scoring service feedback endpoint
+    try {
+      await axios.post('http://localhost:5001/feedback', {
+        alert_id: alert._id.toString(),
+        feedback_type: feedback_type,
+        factors_used: alert.factors || {}
+      });
+    } catch (pythonErr) {
+      console.error('Python scoring feedback error:', pythonErr.message);
+    }
+
+    // Update alert status
+    alert.status = feedback_type === 'genuine' ? 'verified' : 'flagged';
+    await alert.save();
+
+    // Update the reporting user's credibility score
+    const reporter = await User.findById(alert.reportedBy);
+    if (reporter) {
+      if (feedback_type === 'genuine') {
+        reporter.credibilityScore = Math.min(100, (reporter.credibilityScore || 0) + 5);
+      } else {
+        reporter.credibilityScore = Math.max(0, (reporter.credibilityScore || 0) - 10);
+      }
+      await reporter.save();
+    }
+
+    const updatedAlert = await Alert.findById(alert._id)
+      .populate('reportedBy', 'name role credibilityScore')
+      .populate('corroborations', 'name');
+
+    // Emit socket event to notify clients
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('alert_updated', updatedAlert);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Feedback processed successfully',
+      alert: updatedAlert
+    });
+  } catch (error) {
+    console.error('Feedback route error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while processing authority feedback'
+    });
+  }
+});
 
 module.exports = router;

@@ -8,6 +8,7 @@
 
 const Alert = require('../models/Alert');
 const User = require('../models/User');
+const axios = require('axios');
 
 // ==============================================
 // @route   POST /api/alerts
@@ -57,16 +58,32 @@ const createAlert = async (req, res) => {
     // Save the alert to MongoDB
     const alert = await Alert.create(alertData);
 
-    // Populate the reporter's name for the response and socket broadcast
+    // Populate the reporter's name and stats for the response and socket broadcast
     const populatedAlert = await Alert.findById(alert._id).populate(
       'reportedBy',
-      'name email role credibilityScore'
+      'name email role credibilityScore alertsReported'
     );
 
     // Increment the reporting user's alertsReported count
     await User.findByIdAndUpdate(req.user._id, {
       $inc: { alertsReported: 1 },
     });
+
+    // Fetch the updated reporter info for scoring
+    const reportingUser = await User.findById(req.user._id);
+
+    // ==============================================
+    // Trigger scoring call to Python Flask microservice asynchronously
+    // ==============================================
+    axios.post("http://localhost:5001/score", {
+      alert_id: alert._id,
+      corroboration_count: 0,
+      reporter_credibility_score: reportingUser ? reportingUser.credibilityScore : 100,
+      alerts_reported: reportingUser ? reportingUser.alertsReported : 0,
+      alert_type: alert.type,
+      hour_of_day: new Date().getHours(),
+      time_since_posted_minutes: 0
+    }).catch(err => console.log("Scoring service error:", err));
 
     // ==============================================
     // Real-Time Broadcast — Emit to All Connected Clients
@@ -217,6 +234,20 @@ const corroborateAlert = async (req, res) => {
     }
 
     await alert.save();
+
+    // Fetch reporting user to get their latest credibility and reports count
+    const reporter = await User.findById(alert.reportedBy);
+
+    // Call rescoring service asynchronously after corroboration
+    axios.post("http://localhost:5001/score", {
+      alert_id: alert._id,
+      corroboration_count: alert.corroborationCount,
+      reporter_credibility_score: reporter ? reporter.credibilityScore : 100,
+      alerts_reported: reporter ? reporter.alertsReported : 0,
+      alert_type: alert.type,
+      hour_of_day: new Date(alert.createdAt).getHours(),
+      time_since_posted_minutes: Math.floor((Date.now() - new Date(alert.createdAt)) / 60000)
+    }).catch(err => console.log("Rescore error:", err));
 
     // Populate the alert for the response
     const updatedAlert = await Alert.findById(alertId)

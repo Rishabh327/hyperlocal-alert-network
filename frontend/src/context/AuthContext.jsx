@@ -15,7 +15,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import API from '../api/axios';
 
 // Create the Auth context
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 // ==============================================
 // AuthProvider Component

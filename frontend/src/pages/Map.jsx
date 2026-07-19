@@ -1,43 +1,13 @@
-// ==============================================
-// Map Page — Full-Screen Live Alert Map
-// ==============================================
-// The core page of the app. Displays a full-screen Leaflet
-// map centered on the user's GPS location (or India's center).
-// Shows nearby alerts as markers in real-time.
-// Includes a navbar, alert count badge, and a floating
-// "Report Emergency" button that opens the AlertForm modal.
+import { useState, useEffect, useContext } from "react"
+import { MapContainer, TileLayer, useMapEvents, Marker, Popup, useMap } from "react-leaflet"
+import L from "leaflet"
+import { AuthContext } from "../context/AuthContext"
+import { SocketContext } from "../context/SocketContext"
+import AlertMarker from "../components/AlertMarker"
+import AlertForm from "../components/AlertForm"
+import { getNearbyAlerts } from "../api/alerts"
 
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import { useAuth } from '../context/AuthContext';
-import { useSocket } from '../context/SocketContext';
-import { getNearbyAlerts } from '../api/alerts';
-import AlertMarker from '../components/AlertMarker';
-import AlertForm from '../components/AlertForm';
-
-// Default center — India's geographic center
-const DEFAULT_CENTER = [20.5937, 78.9629];
-const DEFAULT_ZOOM = 5;
-const LOCATED_ZOOM = 13;
-
-// ==============================================
-// RecenterMap — Helper component to fly to user location
-// ==============================================
-const RecenterMap = ({ center, zoom }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (center) {
-      map.flyTo(center, zoom, { duration: 1.5 });
-    }
-  }, [center, zoom, map]);
-  return null;
-};
-
-// ==============================================
-// User location marker icon
-// ==============================================
+// User location marker icon using CSS classes from index.css
 const userLocationIcon = L.divIcon({
   className: 'user-location-marker',
   html: `
@@ -48,204 +18,246 @@ const userLocationIcon = L.divIcon({
   `,
   iconSize: [24, 24],
   iconAnchor: [12, 12],
-});
+})
 
-const Map = () => {
-  const { user, logout } = useAuth();
-  const { liveAlerts, isConnected, mergeAlerts } = useSocket();
-  const navigate = useNavigate();
+// Custom recenter control to fly back to the user's location
+const RecenterControl = ({ userLocation }) => {
+  const map = useMap()
 
-  // User's GPS location (defaulting to DEFAULT_CENTER to prevent MapContainer crash)
-  const [userLocation, setUserLocation] = useState(DEFAULT_CENTER);
-  // Whether we are actively geolocating the user
-  const [locating, setLocating] = useState(true);
-  // Whether the alert form modal is open
-  const [showAlertForm, setShowAlertForm] = useState(false);
-  // Loading state for fetching alerts
-  const [fetchingAlerts, setFetchingAlerts] = useState(false);
-
-  // Alias liveAlerts to alerts for rendering mapping
-  const alerts = liveAlerts;
-
-  // ==============================================
-  // Effect: Get User's GPS Location
-  // ==============================================
-  useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-          setLocating(false);
-        },
-        (error) => {
-          console.warn('Geolocation error:', error.message);
-          setLocating(false);
-          // Fallback is already DEFAULT_CENTER
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000,
-        }
-      );
-    } else {
-      console.warn('Geolocation not supported');
-      setLocating(false);
+  const handleRecenter = () => {
+    if (userLocation) {
+      map.flyTo(userLocation, 13, { duration: 1.5 })
     }
-  }, []);
-
-  // ==============================================
-  // Effect: Fetch Nearby Alerts When Location is Settled
-  // ==============================================
-  const fetchAlerts = useCallback(async () => {
-    if (locating) return;
-
-    setFetchingAlerts(true);
-    try {
-      const data = await getNearbyAlerts(userLocation[0], userLocation[1], 5);
-      mergeAlerts(data.alerts);
-    } catch (error) {
-      console.error('Failed to fetch nearby alerts:', error);
-    } finally {
-      setFetchingAlerts(false);
-    }
-  }, [userLocation, locating, mergeAlerts]);
-
-  useEffect(() => {
-    fetchAlerts();
-  }, [fetchAlerts]);
-
-  // ==============================================
-  // Handle Logout
-  // ==============================================
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  // Get user initials for avatar
-  const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
-  };
+  }
 
   return (
-    <div className="map-page">
-      {/* ==============================================
-          Navigation Bar
-          ============================================== */}
-      <nav className="navbar map-navbar" id="map-navbar">
-        <div className="navbar-brand">
-          <div className="navbar-logo">🚨</div>
-          <span className="navbar-title">Hyperlocal Alert Network</span>
-        </div>
+    <button
+      onClick={handleRecenter}
+      style={{
+        position: "absolute",
+        bottom: "100px",
+        right: "20px",
+        zIndex: 1000,
+        background: "#3b82f6",
+        color: "white",
+        border: "none",
+        width: "50px",
+        height: "50px",
+        borderRadius: "50%",
+        fontSize: "20px",
+        cursor: "pointer",
+        boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "transform 0.2s"
+      }}
+      title="Go to My Location"
+    >
+      🎯
+    </button>
+  )
+}
 
-        {/* Alert count + connection status */}
-        <div className="navbar-center">
-          <div className="alert-count-badge" id="alert-count-badge">
-            <span className={`connection-dot ${isConnected ? 'connected' : 'disconnected'}`}></span>
-            <span>{alerts.length} active alert{alerts.length !== 1 ? 's' : ''} nearby</span>
-          </div>
-        </div>
+export default function Map() {
+  const { logout } = useContext(AuthContext)
+  const { socket } = useContext(SocketContext)
 
-        <div className="navbar-user">
-          <div className="navbar-user-info">
-            <div className="user-avatar">{getInitials(user?.name)}</div>
-            <div>
-              <div className="user-name">{user?.name}</div>
-              <div className="user-role">{user?.role}</div>
-            </div>
-          </div>
-          <button id="logout-button" className="btn btn-ghost" onClick={handleLogout}>
+  const [userLocation, setUserLocation] = useState([20.5937, 78.9629])
+  const [alerts, setAlerts] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [locationLoaded, setLocationLoaded] = useState(false)
+  const [activeAlertCount, setActiveAlertCount] = useState(0)
+
+  // ON COMPONENT MOUNT
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude
+          const lng = position.coords.longitude
+          setUserLocation([lat, lng])
+          setLocationLoaded(true)
+
+          getNearbyAlerts(lat, lng, 5)
+            .then((data) => {
+              const fetched = data.alerts || []
+              setAlerts(fetched)
+              setActiveAlertCount(fetched.length)
+            })
+            .catch((err) => {
+              console.error("Error fetching nearby alerts:", err)
+            })
+        },
+        (error) => {
+          console.warn("Geolocation error:", error)
+          setLocationLoaded(true)
+          // Fallback to default
+          const lat = userLocation[0]
+          const lng = userLocation[1]
+          getNearbyAlerts(lat, lng, 5)
+            .then((data) => {
+              const fetched = data.alerts || []
+              setAlerts(fetched)
+              setActiveAlertCount(fetched.length)
+            })
+            .catch((err) => {
+              console.error("Error fetching nearby alerts:", err)
+            })
+        }
+      )
+    } else {
+      console.warn("Geolocation not supported")
+      setLocationLoaded(true)
+      const lat = userLocation[0]
+      const lng = userLocation[1]
+      getNearbyAlerts(lat, lng, 5)
+        .then((data) => {
+          const fetched = data.alerts || []
+          setAlerts(fetched)
+          setActiveAlertCount(fetched.length)
+        })
+        .catch((err) => {
+          console.error("Error fetching nearby alerts:", err)
+        })
+    }
+  }, [])
+
+  // SOCKET INTEGRATION
+  useEffect(() => {
+    if (!socket) return
+
+    const handleNewAlert = (newAlert) => {
+      setAlerts((prev) => {
+        if (prev.some((a) => a._id === newAlert._id)) return prev
+        const updated = [newAlert, ...prev]
+        setActiveAlertCount(updated.length)
+        return updated
+      })
+    }
+
+    const handleAlertUpdated = (updatedAlert) => {
+      setAlerts((prev) => {
+        const updated = prev.map((a) => (a._id === updatedAlert._id ? updatedAlert : a))
+        setActiveAlertCount(updated.length)
+        return updated
+      })
+    }
+
+    socket.on("new_alert", handleNewAlert)
+    socket.on("alert_updated", handleAlertUpdated)
+
+    return () => {
+      socket.off("new_alert", handleNewAlert)
+      socket.off("alert_updated", handleAlertUpdated)
+    }
+  }, [socket])
+
+  return (
+    <div style={{ position: "relative", height: "100vh", width: "100%" }}>
+      <style>{`
+        .leaflet-top {
+          top: 75px !important;
+        }
+      `}</style>
+
+      {/* NAVBAR at top */}
+      <div style={{ position: "absolute", top: 0, left: 0, 
+        right: 0, zIndex: 1000, background: "#1a1a2e", 
+        padding: "10px 20px", display: "flex", 
+        justifyContent: "space-between", alignItems: "center",
+        color: "white" }}>
+        <h2 style={{ margin: 0 }}>🚨 Alert Network</h2>
+        <div>
+          <span style={{ marginRight: "15px", 
+            background: "#e74c3c", padding: "4px 10px", 
+            borderRadius: "20px", fontSize: "14px" }}>
+            {activeAlertCount} active alerts
+          </span>
+          <button onClick={logout} style={{ background: "#e74c3c",
+            color: "white", border: "none", padding: "6px 14px",
+            borderRadius: "6px", cursor: "pointer" }}>
             Logout
           </button>
         </div>
-      </nav>
-
-      {/* ==============================================
-          Full-Screen Map
-          ============================================== */}
-      <div className="map-container" id="map-container">
-        <MapContainer
-          center={userLocation}
-          zoom={13}
-          style={{ height: "100vh", width: "100%" }}
-          zoomControl={true}
-        >
-          {/* OpenStreetMap dark tile layer for premium look */}
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
-
-          {/* Recenter map when user location is determined */}
-          <RecenterMap center={userLocation} zoom={LOCATED_ZOOM} />
-
-          {/* User's current location marker */}
-          {!locating && (
-            <Marker
-              position={userLocation}
-              icon={userLocationIcon}
-            >
-              <Popup>
-                <div style={{ textAlign: 'center', fontFamily: 'Inter, sans-serif' }}>
-                  <strong>📍 Your Location</strong>
-                  <br />
-                  <small style={{ color: '#94a3b8' }}>
-                    {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
-                  </small>
-                </div>
-              </Popup>
-            </Marker>
-          )}
-
-          {/* Alert Markers rendered inside MapContainer */}
-          {alerts.map(alert => (
-            <AlertMarker key={alert._id} alert={alert} />
-          ))}
-        </MapContainer>
-
-        {/* Locating overlay */}
-        {locating && (
-          <div className="map-locating-overlay">
-            <div className="spinner"></div>
-            <p>Determining your location...</p>
-          </div>
-        )}
-
-        {/* Fetching alerts indicator */}
-        {fetchingAlerts && (
-          <div className="map-fetching-badge">
-            <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div>
-            Fetching nearby alerts...
-          </div>
-        )}
       </div>
 
-      {/* ==============================================
-          Floating Report Emergency Button
-          ============================================== */}
-      <button
-        id="report-emergency-btn"
-        className="report-emergency-btn"
-        onClick={() => setShowAlertForm(true)}
+      {/* MAP taking full screen */}
+      <MapContainer
+        key={locationLoaded ? `${userLocation[0]}-${userLocation[1]}` : "loading"}
+        center={userLocation}
+        zoom={13}
+        style={{ height: "100vh", width: "100%" }}
+        zoomControl={true}
       >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="OpenStreetMap contributors"
+        />
+        {alerts.map(alert => (
+          <AlertMarker key={alert._id} alert={alert} />
+        ))}
+
+        {/* User's current location marker */}
+        {locationLoaded && (
+          <Marker position={userLocation} icon={userLocationIcon}>
+            <Popup>
+              <div style={{ textAlign: "center", fontFamily: "sans-serif" }}>
+                <strong>📍 Your Location</strong>
+                <br />
+                <span style={{ fontSize: "11px", color: "#666" }}>
+                  {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                </span>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
+        {/* Floating Recenter Control */}
+        <RecenterControl userLocation={userLocation} />
+      </MapContainer>
+
+      {/* REPORT BUTTON fixed at bottom center */}
+      <button
+        onClick={() => setShowForm(true)}
+        className="report-emergency-btn"
+        style={{
+          position: "fixed",
+          bottom: "30px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 1000,
+          background: "#e74c3c",
+          color: "white",
+          border: "none",
+          padding: "15px 30px",
+          borderRadius: "50px",
+          fontSize: "16px",
+          fontWeight: "bold",
+          cursor: "pointer",
+          boxShadow: "0 4px 15px rgba(231, 76, 60, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          opacity: 1
+        }}>
         <span className="report-btn-icon">🚨</span>
         <span className="report-btn-text">Report Emergency</span>
       </button>
 
-      {/* ==============================================
-          Alert Form Modal
-          ============================================== */}
-      {showAlertForm && (
+      {/* ALERT FORM MODAL */}
+      {showForm && (
         <AlertForm
-          onClose={() => setShowAlertForm(false)}
-          userLocation={{ lat: userLocation[0], lng: userLocation[1] }}
+          userLocation={userLocation}
+          onClose={() => setShowForm(false)}
+          onSuccess={(newAlert) => {
+            setAlerts(prev => [...prev, newAlert])
+            setActiveAlertCount(prev => prev + 1)
+            setShowForm(false)
+          }}
         />
       )}
-    </div>
-  );
-};
 
-export default Map;
+    </div>
+  )
+}

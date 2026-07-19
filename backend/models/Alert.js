@@ -91,6 +91,15 @@ const AlertSchema = new mongoose.Schema({
     default: 0,
   },
 
+  // Confidence score from AI service
+  confidence: {
+    type: Number,
+    default: 50,
+  },
+
+  // Impact factors from AI service
+  factors: { type: Object, default: {} },
+
   // Whether the alert is currently active
   // Set to false when alert expires or is manually deactivated
   isActive: {

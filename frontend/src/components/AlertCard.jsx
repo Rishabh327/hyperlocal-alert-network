@@ -1,114 +1,254 @@
-import { useAuth } from "../context/AuthContext"
+import { useState, useContext } from "react"
+import { AuthContext } from "../context/AuthContext"
 import { corroborateAlert } from "../api/alerts"
 
-// ==============================================
-// Alert Type → Emoji Mapping
-// ==============================================
-const ALERT_ICONS = {
-  flood: '🌊',
-  fire: '🔥',
-  accident: '🚗',
-  gas_leak: '☁️',
-  medical: '🏥',
-  earthquake: '🌍',
-  other: '⚠️',
-};
-
-// ==============================================
-// Helper — Get Credibility Badge Color Style
-// ==============================================
-const getCredibilityStyle = (score) => {
-  if (score > 70) return { background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' };
-  if (score >= 40) return { background: 'rgba(234, 179, 8, 0.15)', color: '#eab308' };
-  return { background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' };
-};
+const TYPE_EMOJI = {
+  flood: "🌊",
+  fire: "🔥",
+  accident: "🚗",
+  gas_leak: "☁️",
+  medical: "🏥",
+  earthquake: "🌍",
+  other: "⚠️"
+}
 
 export default function AlertCard({ alert }) {
-  const { user } = useAuth();
+  const [confirmed, setConfirmed] = useState(false)
+  const auth = useContext(AuthContext)
+  const user = auth?.user
 
-  const handleConfirm = async () => {
-    try {
-      await corroborateAlert(alert._id);
-      // No local state hooks used. Re-rendering will trigger globally via Socket.IO
-    } catch (err) {
-      console.error("Failed to corroborate alert:", err);
+  const emoji = TYPE_EMOJI[alert.type] || "⚠️"
+
+  const getMinutesAgo = (dateString) => {
+    if (!dateString) return "Just now"
+    const diffMs = new Date() - new Date(dateString)
+    const diffMins = Math.floor(diffMs / 60000)
+    if (diffMins <= 0) return "Just now"
+    return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`
+  }
+
+  const getScoreColor = (score) => {
+    if (score > 70) return "#2ecc71"
+    if (score >= 40) return "#f39c12"
+    return "#e74c3c"
+  }
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "verified":
+        return "✅ Verified"
+      case "flagged":
+        return "🚫 Flagged"
+      case "unverified":
+      default:
+        return "⚠️ Unverified"
     }
-  };
+  }
+
+  const handleConfirm = async (e) => {
+    e.stopPropagation()
+    try {
+      await corroborateAlert(alert._id)
+      setConfirmed(true)
+    } catch (err) {
+      console.error("Failed to confirm alert:", err)
+    }
+  }
+
+  const statusBadge = getStatusBadge(alert.status)
+  const scoreColor = getScoreColor(alert.credibilityScore)
 
   const hasCorroborated = alert.corroborations?.some(
-    (c) => (typeof c === 'string' ? c : c._id) === user?.id
-  );
+    (c) => (typeof c === "string" ? c : c._id) === user?.id
+  )
 
   const isReporter =
-    (typeof alert.reportedBy === 'string' ? alert.reportedBy : alert.reportedBy?._id) === user?.id;
+    (typeof alert.reportedBy === "string" ? alert.reportedBy : alert.reportedBy?._id) === user?.id
 
-  const credStyle = getCredibilityStyle(alert.credibilityScore);
-  const typeEmoji = ALERT_ICONS[alert.type] || '⚠️';
+  const alreadyConfirmed = confirmed || hasCorroborated || isReporter
 
   return (
-    <div className="alert-card-popup">
-      <div className="alert-card-header">
-        <span className="alert-card-type-icon">{typeEmoji} {alert.type}</span>
-        <span className="alert-card-status">{alert.status}</span>
+    <div 
+      // Stop event propagation to Leaflet map container to prevent scroll/click issues
+      onWheel={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      style={{
+        fontFamily: "'Outfit', 'Inter', 'Segoe UI', sans-serif",
+        padding: "10px",
+        color: "#2d3748",
+        backgroundColor: "#ffffff",
+        borderRadius: "8px",
+        lineHeight: "1.35",
+        fontSize: "12px",
+        maxHeight: "360px",
+        overflowY: "auto",
+        scrollbarWidth: "thin"
+      }}
+    >
+      {/* Header — Emoji + Type, Status */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        marginBottom: "6px"
+      }}>
+        <span style={{
+          fontSize: "12px",
+          fontWeight: "bold",
+          textTransform: "uppercase",
+          color: "#4a5568"
+        }}>
+          {emoji} {alert.type}
+        </span>
+        <span style={{
+          fontSize: "10px",
+          fontWeight: "bold",
+          color: alert.status === "verified" ? "#2ecc71" : alert.status === "flagged" ? "#e74c3c" : "#f39c12"
+        }}>
+          {statusBadge}
+        </span>
       </div>
 
-      <h3 className="alert-card-title">
+      {/* Title */}
+      <div style={{
+        fontSize: "15px",
+        fontWeight: "bold",
+        marginBottom: "4px",
+        color: "#1a202c"
+      }}>
         <strong>{alert.title}</strong>
-      </h3>
+      </div>
 
-      <p className="alert-card-desc">{alert.description}</p>
+      {/* Description */}
+      <div style={{
+        fontSize: "12px",
+        color: "#4a5568",
+        marginBottom: "6px",
+        wordBreak: "break-word"
+      }}>
+        {alert.description}
+      </div>
 
+      {/* Optional Photo */}
       {alert.photo && (
         <img
           src={`http://localhost:5000${alert.photo}`}
           alt={alert.title}
-          className="alert-card-photo"
+          style={{
+            width: "100%",
+            height: "90px",
+            objectFit: "cover",
+            borderRadius: "4px",
+            marginBottom: "6px",
+            border: "1px solid #edf2f7"
+          }}
         />
       )}
 
-      <div className="alert-card-meta" style={{ marginTop: '8px' }}>
-        <span
-          className="alert-card-credibility"
-          style={{
-            display: 'inline-block',
-            padding: '3px 8px',
-            borderRadius: '12px',
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            ...credStyle
-          }}
-        >
-          ⭐ Credibility: {alert.credibilityScore}
-        </span>
+      {/* Metrics Row (Credibility and Confirmations count) */}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
+        <div style={{
+          flex: 1,
+          backgroundColor: "#f7fafc",
+          padding: "4px 8px",
+          borderRadius: "4px",
+          border: "1px solid #edf2f7"
+        }}>
+          <div style={{ color: "#718096", fontSize: "10px" }}>Credibility</div>
+          <div style={{ fontWeight: "bold", color: scoreColor, fontSize: "12px" }}>{alert.credibilityScore}%</div>
+        </div>
+        <div style={{
+          flex: 1,
+          backgroundColor: "#f7fafc",
+          padding: "4px 8px",
+          borderRadius: "4px",
+          border: "1px solid #edf2f7"
+        }}>
+          <div style={{ color: "#718096", fontSize: "10px" }}>Confirmations</div>
+          <div style={{ fontWeight: "bold", color: "#2d3748", fontSize: "12px" }}>📢 {alert.corroborationCount || 0}</div>
+        </div>
       </div>
 
-      <div className="alert-card-corroborations" style={{ margin: '8px 0', fontSize: '0.85rem' }}>
-        ✅ {alert.corroborationCount} {alert.corroborationCount === 1 ? 'person' : 'people'} confirmed this
+      {/* Posted Time */}
+      <div style={{
+        fontSize: "10px",
+        color: "#718096",
+        marginBottom: "6px"
+      }}>
+        🕒 Posted {getMinutesAgo(alert.createdAt)}
       </div>
 
-      {hasCorroborated || isReporter ? (
-        <div className="alert-card-confirmed" style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: '600' }}>
-          ✅ You confirmed this
+      {/* Collapsible AI Analysis Factors Breakdown */}
+      {alert.factors && (
+        <details style={{ marginBottom: "8px", fontSize: "11px" }}>
+          <summary style={{
+            cursor: "pointer",
+            fontWeight: "bold",
+            color: "#4a5568",
+            outline: "none"
+          }}>
+            📊 View AI Analysis Factors
+          </summary>
+          <div style={{
+            marginTop: "4px",
+            backgroundColor: "#f8fafc",
+            padding: "6px",
+            borderRadius: "4px",
+            border: "1px solid #e2e8f0"
+          }}>
+            {Object.entries(alert.factors).map(([key, val]) => (
+              <div key={key} style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: "2px 0"
+              }}>
+                <span style={{ textTransform: "capitalize", color: "#64748b" }}>{key.replace(/_/g, " ")}:</span>
+                <span style={{
+                  fontWeight: "bold",
+                  color: val >= 0 ? "#2ecc71" : "#e74c3c"
+                }}>
+                  {val >= 0 ? `+${val}` : val}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {/* Confirm Button */}
+      {alreadyConfirmed ? (
+        <div style={{
+          color: "#2ecc71",
+          fontWeight: "bold",
+          textAlign: "center",
+          padding: "6px",
+          background: "rgba(46, 204, 113, 0.08)",
+          borderRadius: "4px",
+          fontSize: "12px"
+        }}>
+          ✅ {isReporter ? "You reported this" : "You confirmed this"}
         </div>
       ) : (
         <button
-          className="alert-card-confirm-btn"
           onClick={handleConfirm}
           style={{
-            width: '100%',
-            padding: '10px',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            marginTop: '8px'
+            width: "100%",
+            background: "#2ecc71",
+            color: "white",
+            border: "none",
+            padding: "6px 0",
+            borderRadius: "4px",
+            fontWeight: "bold",
+            fontSize: "12px",
+            cursor: "pointer",
+            transition: "background 0.2s"
           }}
         >
           ✅ Confirm Alert
         </button>
       )}
     </div>
-  );
+  )
 }
