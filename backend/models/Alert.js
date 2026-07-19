@@ -100,6 +100,20 @@ const AlertSchema = new mongoose.Schema({
   // Impact factors from AI service
   factors: { type: Object, default: {} },
 
+  escalated: {
+    type: Boolean,
+    default: false,
+  },
+
+  resolvedAt: {
+    type: Date,
+  },
+
+  resolvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+
   // Whether the alert is currently active
   // Set to false when alert expires or is manually deactivated
   isActive: {

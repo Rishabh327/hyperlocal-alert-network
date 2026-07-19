@@ -24,6 +24,7 @@ const connectDB = require('./config/db');
 // Import route files
 const authRoutes = require('./routes/auth');
 const alertRoutes = require('./routes/alerts');
+const authorityRoutes = require('./routes/authority');
 
 // ==============================================
 // Connect to MongoDB
@@ -110,6 +111,9 @@ app.use('/api/auth', authRoutes);
 // All alert routes are prefixed with /api/alerts
 // e.g., POST /api/alerts, GET /api/alerts/nearby, POST /api/alerts/:id/corroborate
 app.use('/api/alerts', alertRoutes);
+
+// All authority routes are prefixed with /api/authority
+app.use('/api/authority', authorityRoutes);
 
 // ==============================================
 // Root Route — Health Check

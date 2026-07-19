@@ -19,6 +19,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
 import Map from './pages/Map';
+import AuthorityDashboard from './pages/AuthorityDashboard';
 
 // ==============================================
 // ProtectedRoute Component
@@ -46,6 +47,11 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // Redirect authority users to the authority dashboard
+  if (user.role === 'authority') {
+    return <Navigate to="/authority" replace />;
+  }
+
   // User is authenticated — render the protected page
   return children;
 };
@@ -68,12 +74,43 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  // If user is already authenticated, redirect to map (main dashboard)
+  // If user is already authenticated, redirect to map or authority dashboard
   if (user) {
+    if (user.role === 'authority') {
+      return <Navigate to="/authority" replace />;
+    }
     return <Navigate to="/map" replace />;
   }
 
   // User is not authenticated — show the public page
+  return children;
+};
+
+// ==============================================
+// AuthorityRoute Component
+// ==============================================
+// Wraps authority dashboard pages. Checks authentication and role state:
+// - If user is not "authority", redirects to /map
+const AuthorityRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner"></div>
+        <p className="loading-text">Checking authority credentials...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'authority') {
+    return <Navigate to="/map" replace />;
+  }
+
   return children;
 };
 
@@ -130,6 +167,16 @@ const App = () => {
                 <ProtectedRoute>
                   <Map />
                 </ProtectedRoute>
+              }
+            />
+
+            {/* Authority dashboard — protected authority-only route */}
+            <Route
+              path="/authority"
+              element={
+                <AuthorityRoute>
+                  <AuthorityDashboard />
+                </AuthorityRoute>
               }
             />
 

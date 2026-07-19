@@ -1,0 +1,172 @@
+{
+  "weights": {
+    "corroboration": 3.4000000000000004,
+    "reporter_trust": 0.15000000000000002,
+    "type_risk": 1.7,
+    "time_factor": 1.0999999999999999,
+    "confirmation_speed": 2.0,
+    "suspicious_penalty": 2.5
+  },
+  "thresholds": {
+    "verified": 72,
+    "flagged": 35
+  },
+  "history": [
+    {
+      "timestamp": "2026-07-19T14:06:39.424307",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:06:46.300511",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:06:47.190115",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:06:49.269773",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:07:08.245501",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:07:21.008341",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:07:24.996683",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:07:30.703764",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.45,
+        "reporter_trust": 0.2,
+        "type_risk": 1.75,
+        "time_factor": 1.15,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:07:42.657653",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.5,
+        "reporter_trust": 0.25,
+        "type_risk": 1.8,
+        "time_factor": 1.2,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:07:45.826979",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.45,
+        "reporter_trust": 0.2,
+        "type_risk": 1.75,
+        "time_factor": 1.15,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:07:58.715747",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.15000000000000002,
+        "type_risk": 1.7,
+        "time_factor": 1.0999999999999999,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:08:06.136481",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.45,
+        "reporter_trust": 0.2,
+        "type_risk": 1.75,
+        "time_factor": 1.15,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T14:08:10.238184",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.15000000000000002,
+        "type_risk": 1.7,
+        "time_factor": 1.0999999999999999,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    }
+  ]
+}
