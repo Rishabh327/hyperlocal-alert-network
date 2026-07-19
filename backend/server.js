@@ -42,6 +42,23 @@ const app = express();
 // This is required for Socket.IO to work alongside Express
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  process.env.CLIENT_URL || "http://localhost:5173",
+  "http://localhost:5173",
+  "https://your-app.vercel.app"
+];
+
+const corsOptions = {
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+};
+
 // ==============================================
 // Socket.IO Setup — Real-Time Communication
 // ==============================================
@@ -49,7 +66,7 @@ const server = http.createServer(app);
 // configured to allow connections from the Vite frontend
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -72,14 +89,8 @@ io.on('connection', (socket) => {
 // Middleware Configuration
 // ==============================================
 
-// Enable CORS — allows the frontend (running on port 5173)
-// to make API requests to this backend (running on port 5000)
-app.use(
-  cors({
-    origin: 'http://localhost:5173', // Vite dev server default port
-    credentials: true, // Allow cookies and auth headers
-  })
-);
+// Enable CORS — allows the frontend to make API requests to this backend
+app.use(cors(corsOptions));
 
 // Parse incoming JSON request bodies
 // This allows us to access req.body in route handlers

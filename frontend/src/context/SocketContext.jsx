@@ -43,10 +43,13 @@ export const SocketProvider = ({ children }) => {
     // Only connect if the user is authenticated
     if (token) {
       // Create a new socket connection to the backend
-      const socketInstance = io('http://localhost:5000', {
-        transports: ['websocket', 'polling'],
-        autoConnect: true,
-      });
+      const socketInstance = io(
+        import.meta.env.VITE_SOCKET_URL || "http://localhost:5000",
+        {
+          auth: { token: localStorage.getItem("token") },
+          transports: ["websocket", "polling"]
+        }
+      );
 
       // Store the socket reference and state
       socketRef.current = socketInstance;

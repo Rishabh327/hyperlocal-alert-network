@@ -1,13 +1,6 @@
-# Dependencies
 node_modules/
-
-# Environment variables — contains secrets, never commit
 .env
-
-# Logs
+uploads/
 *.log
-npm-debug.log*
-
-# OS files
 .DS_Store
 Thumbs.db

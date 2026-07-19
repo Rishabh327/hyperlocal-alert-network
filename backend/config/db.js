@@ -14,15 +14,17 @@ const mongoose = require('mongoose');
  */
 const connectDB = async () => {
   try {
-    // Attempt to connect to MongoDB with the URI from .env
-    const conn = await mongoose.connect(process.env.MONGO_URI);
-
-    // Log the connected host for confirmation
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect(
+      process.env.MONGO_URI, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      }
+    )
+    console.log(`MongoDB Connected: ${conn.connection.host}`)
   } catch (error) {
-    // Log the error message and exit the process
-    console.error(`MongoDB Connection Error: ${error.message}`);
-    process.exit(1);
+    console.error(`MongoDB Connection Error: ${error.message}`)
+    console.error("Please check your MONGO_URI in .env file")
+    process.exit(1)
   }
 };
 

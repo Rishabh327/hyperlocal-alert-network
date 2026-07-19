@@ -7,7 +7,12 @@
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
-  "keywords": ["emergency", "alerts", "hyperlocal", "disaster"],
+  "keywords": [
+    "emergency",
+    "alerts",
+    "hyperlocal",
+    "disaster"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -17,6 +22,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.5.0",
     "mongoose": "^8.9.5",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.8.1",

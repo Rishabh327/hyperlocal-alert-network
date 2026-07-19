@@ -259,7 +259,7 @@ router.post('/:id/feedback', protect, async (req, res) => {
 
     // Call Python scoring service feedback endpoint
     try {
-      await axios.post('http://localhost:5001/feedback', {
+      await axios.post(`${process.env.AI_SERVICE_URL || "http://localhost:5001"}/feedback`, {
         alert_id: alert._id.toString(),
         feedback_type: feedback_type,
         factors_used: alert.factors || {}

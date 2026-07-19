@@ -75,7 +75,7 @@ const createAlert = async (req, res) => {
     // ==============================================
     // Trigger scoring call to Python Flask microservice asynchronously
     // ==============================================
-    axios.post("http://localhost:5001/score", {
+    axios.post(`${process.env.AI_SERVICE_URL || "http://localhost:5001"}/score`, {
       alert_id: alert._id,
       corroboration_count: 0,
       reporter_credibility_score: reportingUser ? reportingUser.credibilityScore : 100,
@@ -239,7 +239,7 @@ const corroborateAlert = async (req, res) => {
     const reporter = await User.findById(alert.reportedBy);
 
     // Call rescoring service asynchronously after corroboration
-    axios.post("http://localhost:5001/score", {
+    axios.post(`${process.env.AI_SERVICE_URL || "http://localhost:5001"}/score`, {
       alert_id: alert._id,
       corroboration_count: alert.corroborationCount,
       reporter_credibility_score: reporter ? reporter.credibilityScore : 100,

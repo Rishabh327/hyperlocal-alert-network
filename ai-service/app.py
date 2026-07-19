@@ -15,7 +15,7 @@ import algorithm
 app = Flask(__name__)
 CORS(app)
 
-NODE_BACKEND_URL = os.getenv("NODE_BACKEND_URL", "http://localhost:5000")
+node_url = os.environ.get("NODE_BACKEND_URL", "http://localhost:5000")
 
 @app.route("/score", methods=["POST"])
 def score():
@@ -48,7 +48,7 @@ def score():
 
     # Send result back to Node.js backend
     try:
-        url = f"{NODE_BACKEND_URL}/api/alerts/{alert_id}/score"
+        url = f"{node_url}/api/alerts/{alert_id}/score"
         response = requests.put(url, json=result, timeout=5)
         if response.status_code == 200:
             print(f"Successfully callback to Node backend for alert {alert_id}")
@@ -131,5 +131,5 @@ def health():
     }), 200
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5001))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)

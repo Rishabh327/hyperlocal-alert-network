@@ -168,7 +168,7 @@ router.put('/alerts/:id/verify', async (req, res) => {
 
     // Call Python scoring service feedback
     try {
-      await axios.post('http://localhost:5001/feedback', {
+      await axios.post(`${process.env.AI_SERVICE_URL || "http://localhost:5001"}/feedback`, {
         alert_id: alert._id.toString(),
         feedback_type: 'genuine',
         factors_used: alert.factors || {}
@@ -227,7 +227,7 @@ router.put('/alerts/:id/dismiss', async (req, res) => {
 
     // Call Python scoring service feedback
     try {
-      await axios.post('http://localhost:5001/feedback', {
+      await axios.post(`${process.env.AI_SERVICE_URL || "http://localhost:5001"}/feedback`, {
         alert_id: alert._id.toString(),
         feedback_type: 'false',
         factors_used: alert.factors || {}
