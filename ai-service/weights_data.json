@@ -1,9 +1,9 @@
 {
   "weights": {
     "corroboration": 3.4000000000000004,
-    "reporter_trust": 0.15000000000000002,
-    "type_risk": 1.7,
-    "time_factor": 1.0999999999999999,
+    "reporter_trust": 0.05000000000000002,
+    "type_risk": 1.5999999999999999,
+    "time_factor": 0.9999999999999998,
     "confirmation_speed": 2.0,
     "suspicious_penalty": 2.5
   },
@@ -164,6 +164,102 @@
         "reporter_trust": 0.15000000000000002,
         "type_risk": 1.7,
         "time_factor": 1.0999999999999999,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:32:27.384632",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.3500000000000005,
+        "reporter_trust": 0.10000000000000002,
+        "type_risk": 1.65,
+        "time_factor": 1.0499999999999998,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:33:47.624516",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.15000000000000002,
+        "type_risk": 1.7,
+        "time_factor": 1.0999999999999999,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:35:29.746051",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.10000000000000002,
+        "type_risk": 1.65,
+        "time_factor": 1.0499999999999998,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:36:12.570517",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.15000000000000002,
+        "type_risk": 1.7,
+        "time_factor": 1.0999999999999999,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:36:18.880140",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.10000000000000002,
+        "type_risk": 1.65,
+        "time_factor": 1.0499999999999998,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:36:29.577947",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.3500000000000005,
+        "reporter_trust": 0.05000000000000002,
+        "type_risk": 1.5999999999999999,
+        "time_factor": 0.9999999999999998,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:40:53.831852",
+      "feedback_type": "genuine",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.10000000000000002,
+        "type_risk": 1.65,
+        "time_factor": 1.0499999999999998,
+        "confirmation_speed": 2.0,
+        "suspicious_penalty": 2.5
+      }
+    },
+    {
+      "timestamp": "2026-07-19T15:41:22.049771",
+      "feedback_type": "false",
+      "weights": {
+        "corroboration": 3.4000000000000004,
+        "reporter_trust": 0.05000000000000002,
+        "type_risk": 1.5999999999999999,
+        "time_factor": 0.9999999999999998,
         "confirmation_speed": 2.0,
         "suspicious_penalty": 2.5
       }

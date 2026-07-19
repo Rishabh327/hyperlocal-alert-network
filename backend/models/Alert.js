@@ -66,7 +66,7 @@ const AlertSchema = new mongoose.Schema({
   // flagged = reported as false/spam
   status: {
     type: String,
-    enum: ['unverified', 'verified', 'flagged'],
+    enum: ['unverified', 'verified', 'flagged', 'resolved'],
     default: 'unverified',
   },
 
@@ -113,6 +113,25 @@ const AlertSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+
+  grievances: [
+    {
+      reportedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      reason: {
+        type: String,
+        required: true,
+        maxlength: 200,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 
   // Whether the alert is currently active
   // Set to false when alert expires or is manually deactivated

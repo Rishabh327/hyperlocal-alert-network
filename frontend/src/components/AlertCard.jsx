@@ -17,6 +17,45 @@ export default function AlertCard({ alert }) {
   const auth = useContext(AuthContext)
   const user = auth?.user
 
+  const [showGrievanceForm, setShowGrievanceForm] = useState(false)
+  const [grievanceReason, setGrievanceReason] = useState("")
+  const [grievanceStatus, setGrievanceStatus] = useState("")
+  const [grievanceMsg, setGrievanceMsg] = useState("")
+
+  const handleGrievanceSubmit = async (e) => {
+    e.preventDefault()
+    if (!grievanceReason.trim()) return
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/alerts/${alert._id}/grievance`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${auth?.token}`
+        },
+        body: JSON.stringify({ reason: grievanceReason })
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setGrievanceStatus("success")
+        setGrievanceMsg("Thank you. Our team will review this alert.")
+        setGrievanceReason("")
+        setTimeout(() => {
+          setShowGrievanceForm(false)
+          setGrievanceStatus("")
+          setGrievanceMsg("")
+        }, 3000)
+      } else {
+        setGrievanceStatus("error")
+        setGrievanceMsg(data.message || "Failed to submit report")
+      }
+    } catch (err) {
+      setGrievanceStatus("error")
+      setGrievanceMsg("Server error. Please try again.")
+    }
+  }
+
   const emoji = TYPE_EMOJI[alert.type] || "⚠️"
 
   const getMinutesAgo = (dateString) => {
@@ -249,6 +288,111 @@ export default function AlertCard({ alert }) {
           ✅ Confirm Alert
         </button>
       )}
+
+      {/* Grievance reporting form */}
+      <div style={{ marginTop: "8px" }}>
+        {showGrievanceForm ? (
+          <form 
+            onSubmit={handleGrievanceSubmit} 
+            onClick={(e) => e.stopPropagation()}
+            style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}
+          >
+            <textarea
+              value={grievanceReason}
+              onChange={(e) => setGrievanceReason(e.target.value)}
+              placeholder="Why do you think this alert is false?"
+              maxLength={200}
+              rows={2}
+              style={{
+                width: "100%",
+                padding: "6px",
+                borderRadius: "4px",
+                border: "1px solid #cbd5e0",
+                fontSize: "11px",
+                resize: "none",
+                outline: "none",
+                boxSizing: "border-box"
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "10px", color: "#a0aec0" }}>{grievanceReason.length}/200</span>
+              <div style={{ display: "flex", gap: "4px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowGrievanceForm(false)}
+                  style={{
+                    background: "#edf2f7",
+                    color: "#4a5568",
+                    border: "none",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "10px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!grievanceReason.trim()}
+                  style={{
+                    background: "#e74c3c",
+                    color: "white",
+                    border: "none",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "10px",
+                    cursor: grievanceReason.trim() ? "pointer" : "not-allowed",
+                    opacity: grievanceReason.trim() ? 1 : 0.6
+                  }}
+                >
+                  Submit Report
+                </button>
+              </div>
+            </div>
+          </form>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowGrievanceForm(true)
+            }}
+            style={{
+              width: "100%",
+              background: "transparent",
+              border: "1px dashed #e74c3c",
+              color: "#e74c3c",
+              padding: "6px 0",
+              borderRadius: "4px",
+              fontWeight: "bold",
+              fontSize: "12px",
+              cursor: "pointer",
+              marginTop: "6px",
+              transition: "all 0.2s"
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = "rgba(231, 76, 60, 0.05)"
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = "transparent"
+            }}
+          >
+            🚩 Report as False
+          </button>
+        )}
+
+        {grievanceMsg && (
+          <div style={{
+            marginTop: "6px",
+            fontSize: "11px",
+            color: grievanceStatus === "success" ? "#2ecc71" : "#e74c3c",
+            textAlign: "center",
+            fontWeight: "500"
+          }}>
+            {grievanceMsg}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

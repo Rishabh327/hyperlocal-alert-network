@@ -19,8 +19,9 @@ export const SocketContext = createContext(null);
 // SocketProvider Component
 // ==============================================
 export const SocketProvider = ({ children }) => {
-  // Reference to the socket instance (persists across re-renders)
+  // Reference to the socket instance
   const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
 
   // Array of alerts received in real-time via socket events
   const [liveAlerts, setLiveAlerts] = useState([]);
@@ -42,28 +43,29 @@ export const SocketProvider = ({ children }) => {
     // Only connect if the user is authenticated
     if (token) {
       // Create a new socket connection to the backend
-      const socket = io('http://localhost:5000', {
+      const socketInstance = io('http://localhost:5000', {
         transports: ['websocket', 'polling'],
         autoConnect: true,
       });
 
-      // Store the socket reference
-      socketRef.current = socket;
+      // Store the socket reference and state
+      socketRef.current = socketInstance;
+      setSocket(socketInstance);
 
       // ==============================================
       // Connection Event Handlers
       // ==============================================
-      socket.on('connect', () => {
-        console.log('Socket connected:', socket.id);
+      socketInstance.on('connect', () => {
+        console.log('Socket connected:', socketInstance.id);
         setIsConnected(true);
       });
 
-      socket.on('disconnect', () => {
+      socketInstance.on('disconnect', () => {
         console.log('Socket disconnected');
         setIsConnected(false);
       });
 
-      socket.on('connect_error', (error) => {
+      socketInstance.on('connect_error', (error) => {
         console.error('Socket connection error:', error.message);
         setIsConnected(false);
       });
@@ -73,7 +75,7 @@ export const SocketProvider = ({ children }) => {
       // ==============================================
 
       // When a new alert is broadcast by the server
-      socket.on('new_alert', (alert) => {
+      socketInstance.on('new_alert', (alert) => {
         console.log('New alert received:', alert.title);
         setLiveAlerts((prev) => {
           // Avoid duplicates — check if alert already exists
@@ -84,7 +86,7 @@ export const SocketProvider = ({ children }) => {
       });
 
       // When an existing alert is updated (e.g., corroborated)
-      socket.on('alert_updated', (updatedAlert) => {
+      socketInstance.on('alert_updated', (updatedAlert) => {
         console.log('Alert updated:', updatedAlert.title);
         setLiveAlerts((prev) =>
           prev.map((a) => (a._id === updatedAlert._id ? updatedAlert : a))
@@ -92,7 +94,7 @@ export const SocketProvider = ({ children }) => {
       });
 
       // When an authority broadcast is received
-      socket.on('authority_broadcast', (broadcast) => {
+      socketInstance.on('authority_broadcast', (broadcast) => {
         console.log('Authority broadcast received:', broadcast);
         setBroadcastNotification(broadcast.message);
         setTimeout(() => {
@@ -101,24 +103,32 @@ export const SocketProvider = ({ children }) => {
       });
 
       // When an alert is escalated
-      socket.on('alert_escalated', (alert) => {
+      socketInstance.on('alert_escalated', (alert) => {
         console.log('Alert escalated received:', alert);
         setEscalatedNotification(alert);
+      });
+
+      // When an alert is resolved
+      socketInstance.on('alert_resolved', ({ alertId }) => {
+        console.log('Alert resolved received:', alertId);
+        setLiveAlerts((prev) => prev.filter((a) => a._id !== alertId));
       });
 
       // ==============================================
       // Cleanup: Disconnect When User Logs Out or Component Unmounts
       // ==============================================
       return () => {
-        socket.off('connect');
-        socket.off('disconnect');
-        socket.off('connect_error');
-        socket.off('new_alert');
-        socket.off('alert_updated');
-        socket.off('authority_broadcast');
-        socket.off('alert_escalated');
-        socket.disconnect();
+        socketInstance.off('connect');
+        socketInstance.off('disconnect');
+        socketInstance.off('connect_error');
+        socketInstance.off('new_alert');
+        socketInstance.off('alert_updated');
+        socketInstance.off('authority_broadcast');
+        socketInstance.off('alert_escalated');
+        socketInstance.off('alert_resolved');
+        socketInstance.disconnect();
         socketRef.current = null;
+        setSocket(null);
         setIsConnected(false);
       };
     } else {
@@ -126,6 +136,7 @@ export const SocketProvider = ({ children }) => {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocket(null);
         setIsConnected(false);
       }
       // Clear live alerts when user logs out
@@ -158,7 +169,7 @@ export const SocketProvider = ({ children }) => {
   return (
     <SocketContext.Provider
       value={{
-        socket: socketRef.current,
+        socket,
         liveAlerts,
         isConnected,
         mergeAlerts,

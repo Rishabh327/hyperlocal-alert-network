@@ -60,3 +60,20 @@ export const getBroadcastHistory = async () => {
   const response = await API.get('/authority/broadcasts');
   return response.data;
 };
+
+/**
+ * resolveAlert - Set alert status as resolved and mark inactive
+ * @param {string} id - Alert database ID
+ */
+export const resolveAlert = async (id) => {
+  const response = await API.put(`/authority/alerts/${id}/resolve`);
+  return response.data;
+};
+
+/**
+ * getGrievances - Fetch all alerts on the platform that have citizen grievances
+ */
+export const getGrievances = async () => {
+  const response = await API.get('/authority/grievances');
+  return response.data;
+};

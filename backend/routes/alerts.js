@@ -94,6 +94,79 @@ router.post('/', protect, upload.single('photo'), createAlert);
 // @access  Private (requires JWT)
 router.post('/:id/corroborate', protect, corroborateAlert);
 
+// @route   POST /api/alerts/:id/grievance
+// @desc    Report a grievance against an alert (report as false/spam)
+// @access  Private (requires JWT)
+router.post('/:id/grievance', protect, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reason is required'
+      });
+    }
+
+    const alert = await Alert.findById(req.params.id);
+    if (!alert) {
+      return res.status(404).json({
+        success: false,
+        message: 'Alert not found'
+      });
+    }
+
+    // Check if this user has already submitted a grievance for this alert
+    const alreadySubmitted = alert.grievances?.some(
+      (g) => g.reportedBy.toString() === req.user._id.toString()
+    );
+    if (alreadySubmitted) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already reported this alert as false'
+      });
+    }
+
+    // Push new grievance to array
+    alert.grievances.push({
+      reportedBy: req.user._id,
+      reason: reason.trim(),
+      createdAt: new Date()
+    });
+
+    // Check if grievances count is >= 3
+    if (alert.grievances.length >= 3) {
+      alert.status = 'flagged';
+      alert.credibilityScore = Math.max(0, alert.credibilityScore - 15);
+    }
+
+    await alert.save();
+
+    // Populate user details before socket emit
+    const updatedAlert = await Alert.findById(alert._id)
+      .populate('reportedBy', 'name role credibilityScore')
+      .populate('corroborations', 'name');
+
+    // Retrieve io from the app instance (req.app.get('io')) and emit if available
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('alert_updated', updatedAlert);
+      console.log(`Socket broadcast 'alert_updated' sent for grievance against alert ID: ${alert._id}`);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Grievance recorded',
+      alert: updatedAlert
+    });
+  } catch (error) {
+    console.error('Grievance route error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while recording grievance'
+    });
+  }
+});
+
 // @route   GET /api/alerts/:id
 // @desc    Get a single alert by its ID
 // @access  Public
@@ -197,6 +270,7 @@ router.post('/:id/feedback', protect, async (req, res) => {
 
     // Update alert status
     alert.status = feedback_type === 'genuine' ? 'verified' : 'flagged';
+    alert.grievances = [];
     await alert.save();
 
     // Update the reporting user's credibility score

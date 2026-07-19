@@ -156,6 +156,7 @@ router.put('/alerts/:id/verify', async (req, res) => {
 
     alert.status = 'verified';
     alert.credibilityScore = 95;
+    alert.grievances = []; // Clear pending citizen complaints/grievances
     await alert.save();
 
     // Reward reporter credibility score
@@ -214,6 +215,7 @@ router.put('/alerts/:id/dismiss', async (req, res) => {
 
     alert.status = 'flagged';
     alert.isActive = false;
+    alert.grievances = []; // Clear grievances as the alert has now been processed
     await alert.save();
 
     // Penalize reporter credibility score
@@ -383,6 +385,72 @@ router.get('/broadcasts', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching broadcast history'
+    });
+  }
+});
+
+// ==============================================
+// @route   PUT /api/authority/alerts/:id/resolve
+// ==============================================
+router.put('/alerts/:id/resolve', async (req, res) => {
+  try {
+    const alert = await Alert.findById(req.params.id);
+    if (!alert) {
+      return res.status(404).json({
+        success: false,
+        message: 'Alert not found'
+      });
+    }
+
+    alert.isActive = false;
+    alert.status = 'resolved';
+    alert.resolvedAt = new Date();
+    alert.resolvedBy = req.user._id;
+    await alert.save();
+
+    // Emit live update socket
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('alert_resolved', { alertId: alert._id });
+    }
+
+    res.status(200).json({
+      success: true,
+      alert
+    });
+  } catch (error) {
+    console.error('Resolve alert error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while resolving alert'
+    });
+  }
+});
+
+// ==============================================
+// @route   GET /api/authority/grievances
+// ==============================================
+router.get('/grievances', async (req, res) => {
+  try {
+    // Find all alerts where grievances.length > 0
+    const alerts = await Alert.find({ 'grievances.0': { $exists: true } })
+      .populate('grievances.reportedBy', 'name email')
+      .populate('reportedBy', 'name')
+      .lean();
+
+    // Sort by most grievances first
+    alerts.sort((a, b) => (b.grievances?.length || 0) - (a.grievances?.length || 0));
+
+    res.status(200).json({
+      success: true,
+      count: alerts.length,
+      alerts
+    });
+  } catch (error) {
+    console.error('Get grievances error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching grievances'
     });
   }
 });

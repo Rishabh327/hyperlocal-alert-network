@@ -10,7 +10,9 @@ import {
   dismissAlert,
   escalateAlert,
   sendBroadcast,
-  getBroadcastHistory
+  getBroadcastHistory,
+  resolveAlert,
+  getGrievances
 } from '../api/authority';
 
 // ==============================================
@@ -157,7 +159,7 @@ const createMarkerIcon = (status, type, escalated) => {
 // ==============================================
 const AuthorityDashboard = () => {
   const { user, logout } = useAuth();
-  const { liveAlerts, mergeAlerts } = useSocket();
+  const { socket, liveAlerts, mergeAlerts } = useSocket();
 
   // Navigation state
   const [currentView, setCurrentView] = useState('live-map');
@@ -166,6 +168,15 @@ const AuthorityDashboard = () => {
   const [alerts, setAlerts] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [broadcasts, setBroadcasts] = useState([]);
+  const [grievances, setGrievances] = useState([]);
+
+  // Toast status states
+  const [toastMessage, setToastMessage] = useState('');
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3000);
+  };
 
   // Authority GPS position
   const [authorityLocation, setAuthorityLocation] = useState([20.5937, 78.9629]);
@@ -222,6 +233,18 @@ const AuthorityDashboard = () => {
     }
   };
 
+  // Fetch grievances from backend
+  const fetchGrievancesData = async () => {
+    try {
+      const data = await getGrievances();
+      if (data && data.success) {
+        setGrievances(data.alerts);
+      }
+    } catch (err) {
+      console.error('Error fetching grievances:', err.message);
+    }
+  };
+
   // Get Authority's Current GPS Location
   useEffect(() => {
     if (navigator.geolocation) {
@@ -246,6 +269,7 @@ const AuthorityDashboard = () => {
     fetchAllAlertData();
     fetchAnalyticsData();
     fetchBroadcastLogs();
+    fetchGrievancesData();
   }, []);
 
   // Sync state if socket changes occur
@@ -265,6 +289,21 @@ const AuthorityDashboard = () => {
       });
     }
   }, [liveAlerts]);
+
+  // Sync state with alert_resolved socket event
+  useEffect(() => {
+    if (!socket) return;
+    const handleAlertResolved = ({ alertId }) => {
+      setAlerts((prev) => prev.filter((a) => a._id !== alertId));
+      setGrievances((prev) => prev.filter((g) => g._id !== alertId));
+      fetchAnalyticsData();
+    };
+
+    socket.on('alert_resolved', handleAlertResolved);
+    return () => {
+      socket.off('alert_resolved', handleAlertResolved);
+    };
+  }, [socket]);
 
   // Handler: Verify alert
   const handleVerify = async (id) => {
@@ -302,6 +341,51 @@ const AuthorityDashboard = () => {
       }
     } catch (err) {
       alert('Escalation action failed: ' + err.message);
+    }
+  };
+
+  // Handler: Resolve alert
+  const handleResolve = async (id) => {
+    try {
+      const res = await resolveAlert(id);
+      if (res && res.success) {
+        // Remove from local active alerts immediately
+        setAlerts((prev) => prev.filter((a) => a._id !== id));
+        fetchAnalyticsData();
+        showToast("Alert marked as resolved");
+      }
+    } catch (err) {
+      alert('Resolution action failed: ' + err.message);
+    }
+  };
+
+  // Handler: Dismiss alert in Grievances Panel
+  const handleGrievanceDismiss = async (id) => {
+    try {
+      const res = await dismissAlert(id);
+      if (res && res.success) {
+        setGrievances((prev) => prev.filter((g) => g._id !== id));
+        setAlerts((prev) => prev.filter((a) => a._id !== id));
+        fetchAnalyticsData();
+        showToast("Decision recorded");
+      }
+    } catch (err) {
+      alert('Dismiss failed: ' + err.message);
+    }
+  };
+
+  // Handler: Keep alert in Grievances Panel
+  const handleGrievanceKeep = async (id) => {
+    try {
+      const res = await verifyAlert(id);
+      if (res && res.success) {
+        setGrievances((prev) => prev.filter((g) => g._id !== id));
+        setAlerts((prev) => prev.map((a) => (a._id === id ? res.alert : a)));
+        fetchAnalyticsData();
+        showToast("Decision recorded");
+      }
+    } catch (err) {
+      alert('Verification failed: ' + err.message);
     }
   };
 
@@ -379,6 +463,25 @@ const AuthorityDashboard = () => {
         }
       `}</style>
 
+      {/* Floating Toast Message */}
+      {toastMessage && (
+        <div style={{
+          position: "fixed",
+          bottom: "20px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#2ecc71",
+          color: "white",
+          padding: "12px 24px",
+          borderRadius: "8px",
+          fontWeight: "bold",
+          boxShadow: "0 4px 15px rgba(0,0,0,0.3)",
+          zIndex: 100000
+        }}>
+          {toastMessage}
+        </div>
+      )}
+
       {/* Sidebar */}
       <div
         style={{
@@ -414,7 +517,8 @@ const AuthorityDashboard = () => {
               { id: 'all-alerts', label: '📋 All Alerts' },
               { id: 'analytics', label: '📊 Analytics' },
               { id: 'broadcast', label: '📢 Broadcast' },
-              { id: 'broadcast-history', label: '📜 Broadcast History' }
+              { id: 'broadcast-history', label: '📜 Broadcast History' },
+              { id: 'grievances', label: '🚩 Grievances', badge: grievances.length }
             ].map((item) => {
               const active = currentView === item.id;
               return (
@@ -433,10 +537,26 @@ const AuthorityDashboard = () => {
                     cursor: 'pointer',
                     fontSize: '14px',
                     fontWeight: active ? 'bold' : 'normal',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
+                    width: '100%'
                   }}
                 >
-                  {item.label}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                    <span>{item.label}</span>
+                    {item.badge > 0 && (
+                      <span style={{
+                        background: '#e74c3c',
+                        color: 'white',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        lineHeight: '1'
+                      }}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -512,7 +632,7 @@ const AuthorityDashboard = () => {
                 </Marker>
               )}
 
-              {alerts.map((alert) => {
+              {alerts.filter(a => a.isActive).map((alert) => {
                 if (!alert.location || !alert.location.coordinates) return null;
                 const coords = [alert.location.coordinates[1], alert.location.coordinates[0]];
                 return (
@@ -570,60 +690,79 @@ const AuthorityDashboard = () => {
                         </div>
 
                         {/* Interactive Controls */}
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button
+                              onClick={() => handleVerify(alert._id)}
+                              disabled={alert.status === 'verified'}
+                              style={{
+                                flex: 1,
+                                background: '#2ecc71',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '11px',
+                                opacity: alert.status === 'verified' ? 0.6 : 1
+                              }}
+                            >
+                              Verify
+                            </button>
+                            <button
+                              onClick={() => handleDismiss(alert._id)}
+                              disabled={alert.status === 'flagged'}
+                              style={{
+                                flex: 1,
+                                background: '#e74c3c',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '11px',
+                                opacity: alert.status === 'flagged' ? 0.6 : 1
+                              }}
+                            >
+                              Dismiss
+                            </button>
+                            <button
+                              onClick={() => handleEscalate(alert._id)}
+                              disabled={alert.escalated}
+                              style={{
+                                flex: 1,
+                                background: '#f39c12',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '11px',
+                                opacity: alert.escalated ? 0.6 : 1
+                              }}
+                            >
+                              Escalate
+                            </button>
+                          </div>
                           <button
-                            onClick={() => handleVerify(alert._id)}
-                            disabled={alert.status === 'verified'}
+                            onClick={() => handleResolve(alert._id)}
                             style={{
-                              flex: 1,
+                              width: '100%',
                               background: '#2ecc71',
                               color: 'white',
                               border: 'none',
-                              padding: '6px',
+                              padding: '8px',
                               borderRadius: '4px',
                               cursor: 'pointer',
                               fontWeight: 'bold',
-                              fontSize: '11px',
-                              opacity: alert.status === 'verified' ? 0.6 : 1
+                              fontSize: '12px',
+                              textAlign: 'center'
                             }}
                           >
-                            Verify
-                          </button>
-                          <button
-                            onClick={() => handleDismiss(alert._id)}
-                            disabled={alert.status === 'flagged'}
-                            style={{
-                              flex: 1,
-                              background: '#e74c3c',
-                              color: 'white',
-                              border: 'none',
-                              padding: '6px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontWeight: 'bold',
-                              fontSize: '11px',
-                              opacity: alert.status === 'flagged' ? 0.6 : 1
-                            }}
-                          >
-                            Dismiss
-                          </button>
-                          <button
-                            onClick={() => handleEscalate(alert._id)}
-                            disabled={alert.escalated}
-                            style={{
-                              flex: 1,
-                              background: '#f39c12',
-                              color: 'white',
-                              border: 'none',
-                              padding: '6px',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontWeight: 'bold',
-                              fontSize: '11px',
-                              opacity: alert.escalated ? 0.6 : 1
-                            }}
-                          >
-                            Escalate
+                            ✅ Mark Resolved
                           </button>
                         </div>
                       </div>
@@ -723,6 +862,7 @@ const AuthorityDashboard = () => {
                   <option value="unverified">Unverified</option>
                   <option value="verified">Verified</option>
                   <option value="flagged">Flagged</option>
+                  <option value="resolved">Resolved</option>
                 </select>
               </div>
 
@@ -821,6 +961,8 @@ const AuthorityDashboard = () => {
                                 color: 'white',
                                 background: alert.escalated
                                   ? '#9b59b6'
+                                  : alert.status === 'resolved'
+                                  ? '#4a5568'
                                   : alert.status === 'verified'
                                   ? '#2e7d32'
                                   : alert.status === 'flagged'
@@ -835,7 +977,7 @@ const AuthorityDashboard = () => {
                             <div style={{ display: 'inline-flex', gap: '6px' }}>
                               <button
                                 onClick={() => handleVerify(alert._id)}
-                                disabled={alert.status === 'verified'}
+                                disabled={alert.status === 'verified' || alert.status === 'resolved'}
                                 style={{
                                   background: '#2ecc71',
                                   color: 'white',
@@ -845,14 +987,14 @@ const AuthorityDashboard = () => {
                                   cursor: 'pointer',
                                   fontWeight: 'bold',
                                   fontSize: '11px',
-                                  opacity: alert.status === 'verified' ? 0.5 : 1
+                                  opacity: (alert.status === 'verified' || alert.status === 'resolved') ? 0.5 : 1
                                 }}
                               >
                                 Verify
                               </button>
                               <button
                                 onClick={() => handleDismiss(alert._id)}
-                                disabled={alert.status === 'flagged'}
+                                disabled={alert.status === 'flagged' || alert.status === 'resolved'}
                                 style={{
                                   background: '#e74c3c',
                                   color: 'white',
@@ -862,14 +1004,14 @@ const AuthorityDashboard = () => {
                                   cursor: 'pointer',
                                   fontWeight: 'bold',
                                   fontSize: '11px',
-                                  opacity: alert.status === 'flagged' ? 0.5 : 1
+                                  opacity: (alert.status === 'flagged' || alert.status === 'resolved') ? 0.5 : 1
                                 }}
                               >
                                 Dismiss
                               </button>
                               <button
                                 onClick={() => handleEscalate(alert._id)}
-                                disabled={alert.escalated}
+                                disabled={alert.escalated || alert.status === 'resolved'}
                                 style={{
                                   background: '#f39c12',
                                   color: 'white',
@@ -879,11 +1021,28 @@ const AuthorityDashboard = () => {
                                   cursor: 'pointer',
                                   fontWeight: 'bold',
                                   fontSize: '11px',
-                                  opacity: alert.escalated ? 0.5 : 1
+                                  opacity: (alert.escalated || alert.status === 'resolved') ? 0.5 : 1
                                 }}
                               >
                                 Escalate
                               </button>
+                              {alert.status !== 'resolved' && (
+                                <button
+                                  onClick={() => handleResolve(alert._id)}
+                                  style={{
+                                    background: '#2ecc71',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    fontSize: '11px'
+                                  }}
+                                >
+                                  Resolve
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -927,7 +1086,7 @@ const AuthorityDashboard = () => {
                 </div>
 
                 {/* Row 2 - Alerts by type relative progress */}
-                <div style={{ background: '#0f3460', padding: '24px', borderRadius: '8px' }}>
+                <div style={{ style: { background: '#0f3460', padding: '24px', borderRadius: '8px' } }}>
                   <h3 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>Category Distributions</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {Object.entries(analytics.alerts_by_type).map(([key, count]) => {
@@ -1300,6 +1459,142 @@ const AuthorityDashboard = () => {
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {/* VIEW 6: Grievances */}
+        {currentView === 'grievances' && (
+          <div style={{ padding: '32px', boxSizing: 'border-box' }}>
+            <h1 style={{ margin: '0 0 24px 0', fontSize: '24px', fontWeight: '800' }}>Citizen Grievance Reports</h1>
+            {grievances.length === 0 ? (
+              <div style={{ background: '#0f3460', padding: '40px', borderRadius: '8px', textAlign: 'center', color: '#2ecc71', fontWeight: 'bold' }}>
+                ✅ No pending grievances
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+                {grievances.map((gAlert) => {
+                  const emojis = {
+                    flood: '🌊',
+                    fire: '🔥',
+                    accident: '🚗',
+                    gas_leak: '☁️',
+                    medical: '🏥',
+                    earthquake: '🌍',
+                    other: '⚠️'
+                  };
+                  return (
+                    <div
+                      key={gAlert._id}
+                      style={{
+                        background: '#0f3460',
+                        border: '1px solid rgba(233, 69, 96, 0.15)',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '16px',
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      <div>
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                            {emojis[gAlert.type] || '⚠️'} {gAlert.title}
+                          </span>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            color: 'white',
+                            background: gAlert.status === 'verified' ? '#2e7d32' : gAlert.status === 'flagged' ? '#c62828' : '#e65100'
+                          }}>
+                            {gAlert.status.toUpperCase()}
+                          </span>
+                        </div>
+                        
+                        <div style={{ fontSize: '13px', color: '#b2bec3', marginBottom: '12px' }}>
+                          Reporter: {gAlert.reportedBy?.name || 'Anonymous'}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                          <div style={{ flex: 1, background: '#16213e', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', color: '#b2bec3' }}>Credibility</div>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#e94560' }}>{gAlert.credibilityScore}%</div>
+                          </div>
+                          <div style={{ flex: 1, background: '#16213e', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '10px', color: '#b2bec3' }}>Reports Count</div>
+                            <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#f1c40f' }}>🚩 {gAlert.grievances?.length || 0}</div>
+                          </div>
+                        </div>
+
+                        {/* Grievance list */}
+                        <div style={{ background: '#16213e', borderRadius: '6px', padding: '12px', maxHeight: '180px', overflowY: 'auto' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#e94560', marginBottom: '8px' }}>
+                            🚩 False Reports ({gAlert.grievances?.length || 0}):
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {gAlert.grievances?.map((grievance, idx) => (
+                              <div key={idx} style={{ borderBottom: idx < gAlert.grievances.length - 1 ? '1px solid #0f3460' : 'none', paddingBottom: '6px' }}>
+                                <div style={{ fontSize: '12px', color: 'white', fontStyle: 'italic' }}>"{grievance.reason}"</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#718096', marginTop: '4px' }}>
+                                  <span>By: {grievance.reportedBy?.name || 'Citizen'}</span>
+                                  <span>{new Date(grievance.createdAt).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Decision buttons */}
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                        <button
+                          onClick={() => handleGrievanceDismiss(gAlert._id)}
+                          style={{
+                            flex: 1,
+                            background: '#e74c3c',
+                            color: 'white',
+                            border: 'none',
+                            padding: '10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            transition: 'opacity 0.2s'
+                          }}
+                          onMouseOver={(e) => (e.currentTarget.style.opacity = 0.9)}
+                          onMouseOut={(e) => (e.currentTarget.style.opacity = 1)}
+                        >
+                          ❌ Dismiss Alert
+                        </button>
+                        <button
+                          onClick={() => handleGrievanceKeep(gAlert._id)}
+                          style={{
+                            flex: 1,
+                            background: '#2ecc71',
+                            color: 'white',
+                            border: 'none',
+                            padding: '10px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '12px',
+                            transition: 'opacity 0.2s'
+                          }}
+                          onMouseOver={(e) => (e.currentTarget.style.opacity = 0.9)}
+                          onMouseOut={(e) => (e.currentTarget.style.opacity = 1)}
+                        >
+                          ✅ Keep Alert
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
