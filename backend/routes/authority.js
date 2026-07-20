@@ -307,7 +307,7 @@ router.put('/alerts/:id/escalate', async (req, res) => {
 router.post('/broadcast', async (req, res) => {
   try {
     const { message, zone_lat, zone_lng, zone_radius } = req.body;
-    if (!message || !zone_lat || !zone_lng || !zone_radius) {
+    if (!message || zone_lat === undefined || zone_lng === undefined || zone_radius === undefined) {
       return res.status(400).json({
         success: false,
         message: 'Missing message or zone details'
@@ -318,43 +318,48 @@ router.post('/broadcast', async (req, res) => {
     const lngVal = parseFloat(zone_lng);
     const radiusVal = parseFloat(zone_radius);
 
-    // Query user locations within the selected radius sphere
-    const users = await User.find({
-      location: {
+    const usersInZone = await User.find({
+      lastLocation: {
         $nearSphere: {
           $geometry: {
-            type: 'Point',
+            type: "Point",
             coordinates: [lngVal, latVal]
           },
-          $maxDistance: radiusVal * 1000 // Convert km to meters
+          $maxDistance: radiusVal * 1000
         }
       }
     });
 
-    const affectedCount = users.length;
+    const io = req.app.get("io");
+    const connectedUsers = req.app.get("connectedUsers");
+    let reached = 0;
 
-    // Persist broadcast record in MongoDB
-    const broadcast = await Broadcast.create({
-      message,
-      zone: { lat: latVal, lng: lngVal, radius: radiusVal },
-      sentBy: req.user._id,
-      affectedCount
-    });
-
-    // Broadcast Socket.IO event to all clients
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('authority_broadcast', {
-        message,
-        zone: { lat: latVal, lng: lngVal, radius: radiusVal },
-        timestamp: new Date(),
-        affected_users: affectedCount
+    if (io && connectedUsers) {
+      usersInZone.forEach(user => {
+        const socketId = connectedUsers.get(user._id.toString());
+        if (socketId) {
+          io.to(socketId).emit("authority_broadcast", {
+            message,
+            zone: { lat: latVal, lng: lngVal, radius: radiusVal },
+            timestamp: new Date()
+          });
+          reached++;
+        }
       });
     }
 
+    const broadcast = new Broadcast({
+      message,
+      zone: { lat: latVal, lng: lngVal, radius: radiusVal },
+      sentBy: req.user._id,
+      affectedCount: reached
+    });
+    await broadcast.save();
+
     res.status(200).json({
       success: true,
-      affected_users: affectedCount,
+      affected_users: reached,
+      total_in_zone: usersInZone.length,
       broadcast
     });
   } catch (error) {

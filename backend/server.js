@@ -20,6 +20,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
+const User = require('./models/User');
 
 // Import route files
 const authRoutes = require('./routes/auth');
@@ -41,6 +42,10 @@ const app = express();
 // Create an HTTP server from the Express app
 // This is required for Socket.IO to work alongside Express
 const server = http.createServer(app);
+
+// Map to track active socket connections by User ID
+const connectedUsers = new Map();
+app.set('connectedUsers', connectedUsers);
 
 const allowedOrigins = [
   process.env.CLIENT_URL || "http://localhost:5173",
@@ -80,8 +85,27 @@ app.set('io', io);
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
 
+  socket.on("register_user", (userId) => {
+    console.log(`User registered: ${userId} to socket: ${socket.id}`);
+    connectedUsers.set(userId, socket.id);
+    socket.userId = userId;
+  });
+
+  socket.on("update_location", (data) => {
+    const { userId, lat, lng } = data;
+    User.findByIdAndUpdate(userId, {
+      lastLocation: {
+        type: "Point",
+        coordinates: [parseFloat(lng), parseFloat(lat)]
+      }
+    }).catch(err => console.log("Update location socket error:", err));
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
+    if (socket.userId) {
+      connectedUsers.delete(socket.userId);
+    }
   });
 });
 

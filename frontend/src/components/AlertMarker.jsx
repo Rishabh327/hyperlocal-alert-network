@@ -24,26 +24,33 @@ export default function AlertMarker({ alert }) {
   const emoji = TYPE_EMOJI[alert.type] || "⚠️"
   const color = STATUS_COLOR[alert.status] || "#f39c12"
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const width = isMobile ? 44 : 36;
+  const height = isMobile ? 56 : 46;
+  const circleSize = isMobile ? 30 : 24;
+  const offset = isMobile ? 7 : 6;
+  const emojiSize = isMobile ? 18 : 15;
+
   const icon = divIcon({
     html: `
-      <div style="position: relative; width: 36px; height: 46px; filter: drop-shadow(0px 3px 5px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 8px ${color});">
-        <svg width="36" height="46" viewBox="0 0 36 46" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; pointer-events: none;">
+      <div style="position: relative; width: ${width}px; height: ${height}px; filter: drop-shadow(0px 3px 5px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 8px ${color});">
+        <svg width="${width}" height="${height}" viewBox="0 0 36 46" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; pointer-events: none;">
           <!-- Teardrop shape pointer in status color -->
           <path d="M18 0C8.06 0 0 8.06 0 18C0 31.5 18 46 18 46C18 46 36 31.5 36 18C36 8.06 27.94 0 18 0Z" fill="${color}"/>
         </svg>
         <!-- White circle background centered in the pin head -->
         <div style="
           position: absolute;
-          top: 6px;
-          left: 6px;
-          width: 24px;
-          height: 24px;
+          top: ${offset}px;
+          left: ${offset}px;
+          width: ${circleSize}px;
+          height: ${circleSize}px;
           background: white;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 15px;
+          font-size: ${emojiSize}px;
           line-height: 1;
           user-select: none;
         ">
@@ -52,14 +59,14 @@ export default function AlertMarker({ alert }) {
       </div>
     `,
     className: "",
-    iconSize: [36, 46],
-    iconAnchor: [18, 46],
-    popupAnchor: [0, -42]
+    iconSize: [width, height],
+    iconAnchor: [width / 2, height],
+    popupAnchor: [0, -height + 4]
   })
 
   return (
     <Marker position={[lat, lng]} icon={icon}>
-      <Popup minWidth={250} maxWidth={300}>
+      <Popup minWidth={isMobile ? 260 : 250} maxWidth={isMobile ? Math.floor(window.innerWidth * 0.9) : 300}>
         <AlertCard alert={alert} />
       </Popup>
     </Marker>

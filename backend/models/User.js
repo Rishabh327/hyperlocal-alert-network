@@ -64,6 +64,18 @@ const UserSchema = new mongoose.Schema({
     },
   },
 
+  lastLocation: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      default: "Point"
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0]
+    }
+  },
+
   // Timestamp for when the user account was created
   createdAt: {
     type: Date,
@@ -111,5 +123,6 @@ UserSchema.methods.matchPassword = async function (enteredPassword) {
 
 // Create a 2dsphere index on the location field for geospatial queries
 UserSchema.index({ location: '2dsphere' });
+UserSchema.index({ lastLocation: '2dsphere' });
 
 module.exports = mongoose.model('User', UserSchema);

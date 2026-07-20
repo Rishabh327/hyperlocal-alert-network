@@ -61,6 +61,10 @@ export const SocketProvider = ({ children }) => {
       socketInstance.on('connect', () => {
         console.log('Socket connected:', socketInstance.id);
         setIsConnected(true);
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        if (user._id) {
+          socketInstance.emit("register_user", user._id);
+        }
       });
 
       socketInstance.on('disconnect', () => {
@@ -169,6 +173,18 @@ export const SocketProvider = ({ children }) => {
     );
   };
 
+  const updateUserLocation = (lat, lng) => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const activeSocket = socketRef.current || socket;
+    if (user._id && activeSocket) {
+      activeSocket.emit("update_location", {
+        userId: user._id,
+        lat,
+        lng
+      });
+    }
+  };
+
   return (
     <SocketContext.Provider
       value={{
@@ -177,6 +193,7 @@ export const SocketProvider = ({ children }) => {
         isConnected,
         mergeAlerts,
         updateAlertInState,
+        updateUserLocation,
       }}
     >
       <style>{`
