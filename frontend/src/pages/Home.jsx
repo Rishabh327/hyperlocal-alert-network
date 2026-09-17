@@ -23,8 +23,7 @@ const Home = () => {
   // Handle Logout
   // ==============================================
   const handleLogout = () => {
-    logout(); // Clear token and user state
-    navigate('/login'); // Redirect to login page
+    logout();
   };
 
   // Get the user's initials for the avatar (e.g., "John Doe" → "JD")

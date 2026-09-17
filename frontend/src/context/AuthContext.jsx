@@ -13,6 +13,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 import API from '../api/axios';
+import LogoutModal from '../components/LogoutModal';
 
 // Create the Auth context
 export const AuthContext = createContext(null);
@@ -31,56 +32,39 @@ export const AuthProvider = ({ children }) => {
   // Loading state — true while we're checking if the user is authenticated
   const [loading, setLoading] = useState(true);
 
+  // State for logout confirmation modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   // ==============================================
   // Effect: Load User on Mount / Token Change
   // ==============================================
-  // When the component mounts (or when the token changes),
-  // attempt to fetch the current user's profile from the API.
-  // This handles page refreshes — the token is in localStorage,
-  // so we can re-authenticate without the user logging in again.
   useEffect(() => {
     const loadUser = async () => {
       if (token) {
         try {
-          // Fetch the user profile using the stored token
           const res = await API.get('/auth/me');
           setUser(res.data.user);
         } catch (error) {
-          // If the token is invalid/expired, clear everything
           console.error('Failed to load user:', error);
           localStorage.removeItem('token');
           setToken(null);
           setUser(null);
         }
       }
-      // Done loading regardless of outcome
       setLoading(false);
     };
 
     loadUser();
   }, [token]);
 
-  // ==============================================
-  // Login Function
-  // ==============================================
-  // Sends email and password to the login endpoint.
-  // On success, saves the token and user data.
   const login = async (email, password) => {
     const res = await API.post('/auth/login', { email, password });
-
-    // Save the token to localStorage for persistence
     localStorage.setItem('token', res.data.token);
     setToken(res.data.token);
     setUser(res.data.user);
-
     return res.data;
   };
 
-  // ==============================================
-  // Register Function
-  // ==============================================
-  // Sends name, email, password, and phone to the register endpoint.
-  // On success, saves the token and user data.
   const register = async (name, email, password, phone) => {
     const res = await API.post('/auth/register', {
       name,
@@ -88,29 +72,36 @@ export const AuthProvider = ({ children }) => {
       password,
       phone,
     });
-
-    // Save the token to localStorage for persistence
     localStorage.setItem('token', res.data.token);
     setToken(res.data.token);
     setUser(res.data.user);
-
     return res.data;
   };
 
   // ==============================================
-  // Logout Function
+  // Logout Functions — Triggers Confirmation Modal
   // ==============================================
-  // Clears the token and user data from state and localStorage
   const logout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    setShowLogoutModal(false);
   };
 
-  // Provide the auth state and functions to all children
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, confirmLogout, cancelLogout }}>
       {children}
+      {showLogoutModal && (
+        <LogoutModal onConfirm={confirmLogout} onCancel={cancelLogout} />
+      )}
     </AuthContext.Provider>
   );
 };
