@@ -15,6 +15,10 @@ import {
   getGrievances
 } from '../api/authority';
 
+// Backend origin used to resolve uploaded photo paths (e.g. /uploads/alert-xyz.jpg)
+const BACKEND_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const getPhotoUrl = (photo) => (photo && photo.startsWith('http') ? photo : `${BACKEND_URL}${photo}`);
+
 // ==============================================
 // User Location Icon (Pulsing blue dot)
 // ==============================================
@@ -404,15 +408,19 @@ const AuthorityDashboard = () => {
         zone_radius: broadcastRadius
       });
       if (res && res.success) {
-        setBroadcastStatus({
-          type: 'success',
-          msg: `Broadcast sent to ${res.affected_users} users successfully!`
-        });
+        setBroadcastStatus(
+          res.affected_users > 0
+            ? { type: 'success', msg: `Broadcast sent to ${res.affected_users} users successfully!` }
+            : {
+                type: 'error',
+                msg: `Broadcast saved, but no online users were found in this zone (${res.total_in_zone} users have a last known location inside it).`
+              }
+        );
         setBroadcastMessage('');
         fetchBroadcastLogs();
       }
     } catch (err) {
-      setBroadcastStatus({ type: 'error', msg: 'Failed to send broadcast: ' + err.message });
+      setBroadcastStatus({ type: 'error', msg: 'Failed to send broadcast: ' + (err.response?.data?.message || err.message) });
     }
   };
 
@@ -682,6 +690,15 @@ const AuthorityDashboard = () => {
                         <p style={{ margin: 0, color: '#333333', fontSize: '12px' }}>
                           {alert.description}
                         </p>
+                        {alert.photo && (
+                          <a href={getPhotoUrl(alert.photo)} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={getPhotoUrl(alert.photo)}
+                              alt="Alert evidence"
+                              style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '6px' }}
+                            />
+                          </a>
+                        )}
                         <hr style={{ border: 'none', borderTop: '1px solid #e0e0e0', margin: '4px 0' }} />
                         <div style={{ fontSize: '11px', color: '#555555' }}>
                           <div>👤 Reporter: {alert.reportedBy?.name || 'Anonymous'}</div>
@@ -939,6 +956,15 @@ const AuthorityDashboard = () => {
                             <div style={{ fontSize: '12px', color: '#b2bec3', maxWidth: '300px' }}>
                               {alert.description}
                             </div>
+                            {alert.photo && (
+                              <a href={getPhotoUrl(alert.photo)} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={getPhotoUrl(alert.photo)}
+                                  alt="Alert evidence"
+                                  style={{ marginTop: '8px', width: '120px', height: '80px', objectFit: 'cover', borderRadius: '4px', display: 'block' }}
+                                />
+                              </a>
+                            )}
                           </td>
                           <td style={{ padding: '16px' }}>
                             <div style={{ fontWeight: '500' }}>{alert.reportedBy?.name || 'Anonymous'}</div>

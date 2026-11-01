@@ -331,14 +331,14 @@ router.post('/broadcast', async (req, res) => {
     });
 
     const io = req.app.get("io");
-    const connectedUsers = req.app.get("connectedUsers");
     let reached = 0;
 
-    if (io && connectedUsers) {
+    if (io) {
       usersInZone.forEach(user => {
-        const socketId = connectedUsers.get(user._id.toString());
-        if (socketId) {
-          io.to(socketId).emit("authority_broadcast", {
+        // Every socket of a logged-in user joins the room "user:<id>"
+        const room = `user:${user._id.toString()}`;
+        if (io.sockets.adapter.rooms.has(room)) {
+          io.to(room).emit("authority_broadcast", {
             message,
             zone: { lat: latVal, lng: lngVal, radius: radiusVal },
             timestamp: new Date()

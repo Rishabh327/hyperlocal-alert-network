@@ -34,7 +34,7 @@ export const SocketProvider = ({ children }) => {
   const [escalatedNotification, setEscalatedNotification] = useState(null);
 
   // Get the current auth token from AuthContext
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   // ==============================================
   // Effect: Connect/Disconnect Socket Based on Auth State
@@ -61,9 +61,11 @@ export const SocketProvider = ({ children }) => {
       socketInstance.on('connect', () => {
         console.log('Socket connected:', socketInstance.id);
         setIsConnected(true);
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        if (user._id) {
-          socketInstance.emit("register_user", user._id);
+        // The server identifies the user from the handshake token; this is a fallback
+        const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const storedUserId = storedUser._id || storedUser.id;
+        if (storedUserId) {
+          socketInstance.emit("register_user", storedUserId);
         }
       });
 
@@ -174,11 +176,11 @@ export const SocketProvider = ({ children }) => {
   };
 
   const updateUserLocation = (lat, lng) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
     const activeSocket = socketRef.current || socket;
-    if (user._id && activeSocket) {
+    if (activeSocket) {
+      // userId is optional — the server uses the user tied to the socket's token
       activeSocket.emit("update_location", {
-        userId: user._id,
+        userId: user?.id || user?._id,
         lat,
         lng
       });

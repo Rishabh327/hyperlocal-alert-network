@@ -21,6 +21,7 @@ const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
 const User = require('./models/User');
+const jwt = require('jsonwebtoken');
 
 // Import route files
 const authRoutes = require('./routes/auth');
@@ -42,10 +43,6 @@ const app = express();
 // Create an HTTP server from the Express app
 // This is required for Socket.IO to work alongside Express
 const server = http.createServer(app);
-
-// Map to track active socket connections by User ID
-const connectedUsers = new Map();
-app.set('connectedUsers', connectedUsers);
 
 const allowedOrigins = [
   process.env.CLIENT_URL || "http://localhost:5173",
@@ -85,27 +82,45 @@ app.set('io', io);
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
 
+  // Each user's sockets join a private room "user:<id>" so broadcasts reach
+  // every open tab/device. Identify the user from the JWT sent in the handshake.
+  const registerSocket = (userId) => {
+    if (!userId) return;
+    socket.userId = userId.toString();
+    socket.join(`user:${socket.userId}`);
+    console.log(`User registered: ${socket.userId} to socket: ${socket.id}`);
+  };
+
+  const handshakeToken = socket.handshake.auth && socket.handshake.auth.token;
+  if (handshakeToken) {
+    try {
+      const decoded = jwt.verify(handshakeToken, process.env.JWT_SECRET);
+      registerSocket(decoded.id);
+    } catch (err) {
+      console.log("Socket token verification failed:", err.message);
+    }
+  }
+
   socket.on("register_user", (userId) => {
-    console.log(`User registered: ${userId} to socket: ${socket.id}`);
-    connectedUsers.set(userId, socket.id);
-    socket.userId = userId;
+    if (!socket.userId) registerSocket(userId);
   });
 
-  socket.on("update_location", (data) => {
-    const { userId, lat, lng } = data;
+  socket.on("update_location", (data = {}) => {
+    const { lat, lng } = data;
+    const userId = socket.userId || data.userId;
+    const latVal = parseFloat(lat);
+    const lngVal = parseFloat(lng);
+    if (!userId || Number.isNaN(latVal) || Number.isNaN(lngVal)) return;
     User.findByIdAndUpdate(userId, {
       lastLocation: {
         type: "Point",
-        coordinates: [parseFloat(lng), parseFloat(lat)]
+        coordinates: [lngVal, latVal]
       }
     }).catch(err => console.log("Update location socket error:", err));
   });
 
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
-    if (socket.userId) {
-      connectedUsers.delete(socket.userId);
-    }
   });
 });
 
