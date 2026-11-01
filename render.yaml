@@ -1,0 +1,36 @@
+# Render Blueprint — deploys the Node backend and the Python AI service (free plan).
+# Secrets marked "sync: false" are asked for when you create the Blueprint.
+services:
+  - type: web
+    name: alertnet-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false # your Vercel URL, e.g. https://alertnet.vercel.app
+      - key: AI_SERVICE_URL
+        sync: false # e.g. https://alertnet-ai.onrender.com
+
+  - type: web
+    name: alertnet-ai
+    runtime: python
+    plan: free
+    rootDir: ai-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: NODE_BACKEND_URL
+        sync: false # e.g. https://alertnet-backend.onrender.com

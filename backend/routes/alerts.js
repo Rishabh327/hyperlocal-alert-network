@@ -32,21 +32,10 @@ const { protect } = require('../middleware/auth');
 // ==============================================
 // Multer Configuration — Photo Upload Handling
 // ==============================================
-// Configure where and how uploaded photos are stored.
-// Files are saved to the /uploads directory with unique
-// filenames to prevent collisions.
-const storage = multer.diskStorage({
-  // Set the destination folder for uploaded files
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads'));
-  },
-  // Generate a unique filename using UUID to avoid collisions
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueName = `alert-${uuidv4()}${ext}`;
-    cb(null, uniqueName);
-  },
-});
+// Uploaded photos are kept in memory and then stored in MongoDB
+// by the controller, because free hosts (e.g. Render) wipe the
+// local disk on every restart/redeploy.
+const storage = multer.memoryStorage();
 
 // File filter — only allow image files
 const fileFilter = (req, file, cb) => {
@@ -263,7 +252,7 @@ router.post('/:id/feedback', protect, async (req, res) => {
         alert_id: alert._id.toString(),
         feedback_type: feedback_type,
         factors_used: alert.factors || {}
-      });
+      }, { timeout: 8000 }); // don't hang if the AI service is asleep
     } catch (pythonErr) {
       console.error('Python scoring feedback error:', pythonErr.message);
     }

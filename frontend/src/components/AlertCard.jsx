@@ -2,6 +2,9 @@ import { useState, useContext } from "react"
 import { AuthContext } from "../context/AuthContext"
 import { corroborateAlert } from "../api/alerts"
 
+// Backend origin, e.g. https://your-backend.onrender.com
+const BACKEND_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000"
+
 const TYPE_EMOJI = {
   flood: "🌊",
   fire: "🔥",
@@ -27,7 +30,7 @@ export default function AlertCard({ alert }) {
     if (!grievanceReason.trim()) return
 
     try {
-      const res = await fetch(`http://localhost:5000/api/alerts/${alert._id}/grievance`, {
+      const res = await fetch(`${BACKEND_URL}/api/alerts/${alert._id}/grievance`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -173,7 +176,7 @@ export default function AlertCard({ alert }) {
       {/* Optional Photo */}
       {alert.photo && (
         <img
-          src={`http://localhost:5000${alert.photo}`}
+          src={alert.photo.startsWith("http") ? alert.photo : `${BACKEND_URL}${alert.photo}`}
           alt={alert.title}
           style={{
             width: "100%",

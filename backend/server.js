@@ -21,6 +21,7 @@ const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
 const User = require('./models/User');
+const Photo = require('./models/Photo');
 const jwt = require('jsonwebtoken');
 
 // Import route files
@@ -44,18 +45,21 @@ const app = express();
 // This is required for Socket.IO to work alongside Express
 const server = http.createServer(app);
 
+// CLIENT_URL may hold several comma-separated origins,
+// e.g. "https://my-app.vercel.app,http://localhost:5173"
+const normalizeOrigin = (o) => o.trim().replace(/\/+$/, "");
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:5173",
+  ...(process.env.CLIENT_URL || "").split(",").map(normalizeOrigin).filter(Boolean),
   "http://localhost:5173",
-  "https://your-app.vercel.app"
 ];
 
 const corsOptions = {
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(null, false);
     }
   },
   credentials: true
@@ -68,7 +72,7 @@ const corsOptions = {
 // configured to allow connections from the Vite frontend
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: corsOptions.origin,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -149,6 +153,20 @@ if (!fs.existsSync(uploadsDir)) {
 // Serve uploaded files as static assets at /uploads
 // e.g., GET /uploads/alert-abc123.jpg
 app.use('/uploads', express.static(uploadsDir));
+
+// Serve photos stored in MongoDB (survives restarts on hosts with ephemeral disks)
+// e.g., GET /photos/665f1c...
+app.get('/photos/:id', async (req, res) => {
+  try {
+    const photo = await Photo.findById(req.params.id);
+    if (!photo) return res.status(404).send('Photo not found');
+    res.set('Content-Type', photo.contentType);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(photo.data);
+  } catch (error) {
+    res.status(404).send('Photo not found');
+  }
+});
 
 // ==============================================
 // Mount Routes

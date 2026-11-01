@@ -172,7 +172,7 @@ router.put('/alerts/:id/verify', async (req, res) => {
         alert_id: alert._id.toString(),
         feedback_type: 'genuine',
         factors_used: alert.factors || {}
-      });
+      }, { timeout: 8000 }); // don't hang if the AI service is asleep
     } catch (pythonErr) {
       console.error('Python scoring feedback api error:', pythonErr.message);
     }
@@ -231,7 +231,7 @@ router.put('/alerts/:id/dismiss', async (req, res) => {
         alert_id: alert._id.toString(),
         feedback_type: 'false',
         factors_used: alert.factors || {}
-      });
+      }, { timeout: 8000 }); // don't hang if the AI service is asleep
     } catch (pythonErr) {
       console.error('Python scoring feedback api error:', pythonErr.message);
     }

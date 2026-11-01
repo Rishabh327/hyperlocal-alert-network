@@ -16,11 +16,19 @@ const connectDB = async () => {
   try {
     const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/hyperlocal';
     const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 2000,
+      // Atlas can take several seconds to answer from a cold host
+      serverSelectionTimeoutMS: process.env.MONGO_URI ? 15000 : 2000,
       socketTimeoutMS: 45000,
     });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
+    // In production (or whenever a real MONGO_URI is configured) never fall back
+    // to an in-memory DB: it isn't installed there and would lose all data.
+    if (process.env.MONGO_URI || process.env.NODE_ENV === 'production') {
+      console.error(`MongoDB Connection Error: ${error.message}`);
+      console.error('Check MONGO_URI and that Atlas Network Access allows 0.0.0.0/0');
+      process.exit(1);
+    }
     console.warn(`Local MongoDB Connection Error (${error.message}). Starting MongoMemoryServer...`);
     try {
       const { MongoMemoryServer } = require('mongodb-memory-server');

@@ -8,6 +8,7 @@
 
 const Alert = require('../models/Alert');
 const User = require('../models/User');
+const Photo = require('../models/Photo');
 const axios = require('axios');
 
 // ==============================================
@@ -50,9 +51,13 @@ const createAlert = async (req, res) => {
       reportedBy: req.user._id,
     };
 
-    // If a photo was uploaded via multer, save its path
+    // If a photo was uploaded via multer, store it in MongoDB and save its URL path
     if (req.file) {
-      alertData.photo = `/uploads/${req.file.filename}`;
+      const photo = await Photo.create({
+        data: req.file.buffer,
+        contentType: req.file.mimetype,
+      });
+      alertData.photo = `/photos/${photo._id}`;
     }
 
     // Save the alert to MongoDB
