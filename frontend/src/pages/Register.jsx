@@ -118,7 +118,7 @@ const Register = () => {
           {/* Phone Number Field — Optional */}
           <div className="form-group">
             <label htmlFor="register-phone" className="form-label">
-              Phone Number <span style={{ opacity: 0.5, fontWeight: 400 }}>(optional)</span>
+              Phone Number <span style={{ opacity: 0.5, fontWeight: 400 }}>(optional, for SMS alerts)</span>
             </label>
             <input
               id="register-phone"

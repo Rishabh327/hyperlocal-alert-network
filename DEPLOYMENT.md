@@ -84,6 +84,31 @@ and live alerts/broadcasts don't arrive while it sleeps.
 - Ping **only the backend**: Render's free plan gives 750 instance-hours per month in total, which
   covers one always-on service. The AI service wakes up by itself when an alert is scored.
 
+## 8. SMS alerts with Twilio (optional)
+
+The backend texts citizens who saved a phone number:
+
+| Event | Who gets the SMS |
+|---|---|
+| Authority broadcast | Citizens whose last known location is inside the broadcast zone (online or offline) |
+| Alert verified | Citizens within `SMS_ALERT_RADIUS_KM` (default 5 km) of the alert |
+| Alert escalated | Citizens within `SMS_ALERT_RADIUS_KM` of the alert |
+
+A citizen's location is known once they've opened the Map page. Numbers saved without a country code
+get `SMS_DEFAULT_COUNTRY_CODE` (default `+91`).
+
+1. Sign up at https://www.twilio.com/try-twilio (free trial credit).
+2. In the Twilio Console, copy the **Account SID** and **Auth Token**, then **get a phone number**.
+3. **Trial accounts only text verified numbers**: add each test phone under
+   *Phone Numbers → Manage → Verified Caller IDs*. Trial messages start with "Sent from your Twilio trial account".
+   For Indian (+91) numbers, also enable India under *Messaging → Settings → Geo permissions*.
+4. On Render → `alertnet-backend` → **Environment**, add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`
+   and `TWILIO_PHONE_NUMBER` (E.164, e.g. `+15551234567`). Save — Render redeploys.
+
+Without these variables, SMS is skipped and everything else keeps working. After a broadcast, the
+dashboard shows how many SMS were sent; failures are logged in the Render backend logs
+(`SMS to ... failed: ...`). `SMS_MAX_RECIPIENTS` (default 100) caps texts per event to protect your credit.
+
 ---
 
 ## Troubleshooting
@@ -95,4 +120,5 @@ and live alerts/broadcasts don't arrive while it sleeps.
 | Frontend calls `localhost:5000` | `VITE_API_URL` / `VITE_SOCKET_URL` not set on Vercel, or not redeployed after setting them |
 | 404 when refreshing a page on Vercel | Vercel Root Directory isn't `frontend` (so `vercel.json` isn't used) |
 | Credibility scores never update | `AI_SERVICE_URL` / `NODE_BACKEND_URL` wrong, or AI service still waking up (wait ~1 min) |
+| No SMS arrives | Twilio vars missing on Render, number not verified (trial), Geo permissions off for that country, or the citizen never opened the Map page (no location). Check Render logs for `SMS summary` |
 | Location / broadcast prompts don't appear | Geolocation only works over `https` — use the Vercel URL, not an IP |

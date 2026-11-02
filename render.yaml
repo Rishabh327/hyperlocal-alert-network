@@ -20,6 +20,15 @@ services:
         sync: false # your Vercel URL, e.g. https://alertnet.vercel.app
       - key: AI_SERVICE_URL
         sync: false # e.g. https://alertnet-ai.onrender.com
+      # Twilio SMS (optional — SMS is skipped if these are missing)
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false # your Twilio number in E.164, e.g. +15551234567
+      - key: SMS_DEFAULT_COUNTRY_CODE
+        value: "+91"
 
   - type: web
     name: alertnet-ai

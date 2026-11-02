@@ -408,12 +408,15 @@ const AuthorityDashboard = () => {
         zone_radius: broadcastRadius
       });
       if (res && res.success) {
+        const smsNote = res.sms_enabled
+          ? ` SMS sent to ${res.sms_sent} phone${res.sms_sent === 1 ? '' : 's'}${res.sms_failed ? ` (${res.sms_failed} failed)` : ''}.`
+          : '';
         setBroadcastStatus(
-          res.affected_users > 0
-            ? { type: 'success', msg: `Broadcast sent to ${res.affected_users} users successfully!` }
+          res.affected_users > 0 || res.sms_sent > 0
+            ? { type: 'success', msg: `Broadcast sent to ${res.affected_users} online users.${smsNote}` }
             : {
                 type: 'error',
-                msg: `Broadcast saved, but no online users were found in this zone (${res.total_in_zone} users have a last known location inside it).`
+                msg: `Broadcast saved, but no online users were found in this zone (${res.total_in_zone} users have a last known location inside it).${smsNote}`
               }
         );
         setBroadcastMessage('');

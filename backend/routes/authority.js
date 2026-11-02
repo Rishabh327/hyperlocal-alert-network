@@ -6,6 +6,9 @@ const User = require('../models/User');
 const Broadcast = require('../models/Broadcast');
 const { protect } = require('../middleware/auth');
 const authority = require('../middleware/authority');
+const sms = require('../services/sms');
+
+const typeLabel = (type) => (type || 'other').replace('_', ' ').toUpperCase();
 
 // Protect all routes in this file with Auth + Authority checks
 router.use(protect);
@@ -187,6 +190,12 @@ router.put('/alerts/:id/verify', async (req, res) => {
       io.emit('alert_updated', updatedAlert);
     }
 
+    // SMS nearby citizens in the background (doesn't delay the response)
+    sms.notifyUsersNearAlert(
+      alert,
+      `[AlertNet] VERIFIED ${typeLabel(alert.type)} alert near you: ${alert.title}. Stay alert and follow official instructions.${sms.appLink()}`
+    ).catch(err => console.error('Verify SMS error:', err.message));
+
     res.status(200).json({
       success: true,
       alert: updatedAlert
@@ -288,6 +297,12 @@ router.put('/alerts/:id/escalate', async (req, res) => {
       io.emit('alert_escalated', updatedAlert);
     }
 
+    // SMS nearby citizens in the background (doesn't delay the response)
+    sms.notifyUsersNearAlert(
+      alert,
+      `[AlertNet] URGENT: ${typeLabel(alert.type)} emergency escalated near you: ${alert.title}. Avoid the area and follow official instructions.${sms.appLink()}`
+    ).catch(err => console.error('Escalate SMS error:', err.message));
+
     res.status(200).json({
       success: true,
       alert: updatedAlert
@@ -348,6 +363,17 @@ router.post('/broadcast', async (req, res) => {
       });
     }
 
+    // SMS every user in the zone with a phone number, online or not
+    let smsResult = { sent: 0, failed: 0, skipped: 0 };
+    try {
+      smsResult = await sms.sendBulkSms(
+        usersInZone.filter(user => user.role === 'citizen' && user.phone),
+        `[AlertNet] OFFICIAL BROADCAST: ${message}`
+      );
+    } catch (smsErr) {
+      console.error('Broadcast SMS error:', smsErr.message);
+    }
+
     const broadcast = new Broadcast({
       message,
       zone: { lat: latVal, lng: lngVal, radius: radiusVal },
@@ -360,6 +386,9 @@ router.post('/broadcast', async (req, res) => {
       success: true,
       affected_users: reached,
       total_in_zone: usersInZone.length,
+      sms_sent: smsResult.sent,
+      sms_failed: smsResult.failed,
+      sms_enabled: sms.isConfigured(),
       broadcast
     });
   } catch (error) {
